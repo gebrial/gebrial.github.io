@@ -30,6 +30,49 @@
       <p>My goal is to make this into a blog type section, however, I don't have the skills for that at this time. This entire website will evolve as I learn more about the languages, but for now it will be somewhat primitive.</p>
     </section>
 
+    <section id="vendors">
+      <h3>Vendor Prefixes</h3>
+      <h4>12:07, Thursday, April 30, 2015.</h4>
+
+      <p>The most common vendor prefixes for css styles are:</p>
+      <code>-moz-<br>-ms-<br>-webkit-</code>
+
+    </section>
+
+    <section id="sql">
+      <h3>SQL Basics: <i>select</i> and <i>insert</i> Keywords</h3>
+      <h4>20:00, Wednesday, April 29, 2015.</h4>
+
+      <p>Two very important keywords in the sql database language are select and insert. <i>select</i> allows you to request information from the database and <i>insert</i> allows you to deposit information into the database.</p>
+
+      <p>You must first specify the name of the column to withdraw and then the name of the database with the keyword <i>from</i>, e.g., <code>select colm1 from dtbs1</code>. You can select multiple columns and databases, each separated by a comma. Selecting multiple databases requires combining one column from each database using the <i>where</i> keyword and an assignment operator, '='. If there are two columns with the same name in different databases, you must specify which database your desired column comes from with a dot operator, e.g., <code>select dtbs1.colm1, dtbs2.colm1 from dtbs1, dtbs2 where dtbs1.colm3 = dtbs2.colm4</code>.</p>
+
+      <p>A database is essentially a table, and a table is no use if you cannot order it. Thus enters the <i>order by</i> keyword. It accepts a column name as it's first parameter and an optional <i>desc</i> parameter to switch the order.</p>
+
+      <p>You can also create a new column as you request for information. These are functions that take in a column name as a parameter in brackets. The functions include <code>count</code>, <code>max</code>, <code>min</code>, etc.. On their own these functions act on the entire database and return a single result. However, they can be made to act on a specific column and return a value for each unique item in the column. This is done by also include the <code>group by</code> keyword. It is followed by a column name.</p>
+
+      <p>You can also use the <code>where</code> keyword to limit the output to database entries that only have a specific value. This is also done with an assignment operator. Multiple assignments are separated by an <code>and</code> keyword. However, you cannot use this method with newly created columns as <code>where</code> only acts on the original database. You must use the <code>having</code> keyword to act on any new columns that are created. It is used in the same way as <code>where</code>.</p>
+
+      <p>Creating multiple pages of databases is also a breeze with sql. We just use the keyword <code>limit</code> in conjunction with <code>offset</code>. <code>limit</code> takes an integer as an argument and only shows that many items per outputted database. <code>offset</code> also takes an integer, n, and skips the first n values of the outputted database.</p>
+
+      <p>You must be careful when outputting data after creating new columns as this essentially collapses the database into a new database with one entry for each unique element in the <code>group by</code> column. Requesting information which might have had different values for a single value of the <code>group by</code> column will most likely yield useless results.</p>
+
+      <p>This has been a quick, late evening round-up of sql basics. I'll endevour to add some examples later on as practice but if you're unsure of anything: <a href='http://lmgtfy.com/?q=sql+basics'>sql basics</a>.</p>
+
+      <p>source: <a href='https://www.udacity.com/course/intro-to-relational-databases--ud197' target='_blank'>Intro to Relational Databases; Lesson 2</a>.</p>
+
+    </section>
+
+    <section id="git">
+      <h3>Git Basics</h3>
+      <h4>13:56, Wednesday, April 29, 2015.</h4>
+
+      <p>Highly suggested pre-reading: <a href="http://tom.preston-werner.com/2009/05/19/the-git-parable.html" target='_blank'>The Git Parable</a>. This 'short-story' will teach you the motivations behind creating and using a version control system. It does a very good job of explaining it and motivating you to use a vcs so take 30 minutes and go it.</p>
+
+      <p>More to be added...</p>
+
+    </section>
+
     <section id="semantics">
       <h3>Semantics</h3>
       <h4>11:38, Tuesday, April 28, 2015.</h4>
@@ -44,17 +87,7 @@
         <p id="bolding">The second pair of such elements are the <b>bold</b> elements. The first version simply bolds the contained text. It is purely for offsetting the text and suggests no overly important value of the contained text. It is given the element name of <b>b</b>. The second version also bolds the text but adds a strong importance to the contained text. As such, it's element name is <b>strong</b>.</p>
       </section>
 
-      <p> source: <a href="http://learn.shayhowe.com/html-css/getting-to-know-html/">Shay Howe Tutorials.</a></p>
-    </section>
-
-    <section id="git">
-      <h3>Git Basics</h3>
-      <h4>13:56, Wednesday, April 29, 2015.</h4>
-
-      <p>Highly suggested pre-reading: <a href="http://tom.preston-werner.com/2009/05/19/the-git-parable.html">The Git Parable</a>. This 'short-story' will teach you the motivations behind creating and using a version control system. It does a very good job of explaining it and motivating you to use a vcs so take 30 minutes and go it.</p>
-
-      <p>More to be added...</p>
-
+      <p> source: <a href="http://learn.shayhowe.com/html-css/getting-to-know-html/" target='_blank'>Shay Howe Tutorials.</a></p>
     </section>
 
     <footer>

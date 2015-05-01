@@ -1,21 +1,36 @@
 body{
-  background:rgb(240, 255, 240);
+  margin:15px auto;
+  width:75%;
 }
 
 nav{
-  background:rgb(245, 255, 245);
   text-align:center;
 }
 
 h1{
-  background:rgb(250, 255, 250);
   text-align:center;
   padding:0px;
   border:0px;
   margin:0px;
 }
 
-a:link, a:visited{
+#learnings{
+  float:left;
+
+
+  box-sizing: border-box;
+  width:35%;
+  margin:3%;
+
+  padding:0px 15px;
+
+  border:3px solid orange;
+  border-radius:15px;
+}
+
+/*
+a:link,
+a:visited{
   text-decoration:none;
 }
 
@@ -27,7 +42,8 @@ a:visited{
   color:#800000;
 }
 
-a:hover, a:active{
+a:hover,
+a:active{
   text-decoration:underline;
 }
 
@@ -38,3 +54,4 @@ a:hover{
 a:active{
 color:#400000;
 }
+*/

@@ -1,3 +1,7 @@
+html{
+  color:#004; /* sets the text colour. */
+}
+
 body{
   margin:15px auto;
   width:75%;

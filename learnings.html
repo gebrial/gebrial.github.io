@@ -31,6 +31,28 @@
       <p>My goal is to make this into a blog type section, however, I don't have the skills for that at this time. This entire website will evolve as I learn more about the languages, but for now it will be somewhat primitive.</p>
     </section>
 
+    <section id="font-props">
+      <h3>Font properties</h3>
+      <h4>17:51, Saturday, May 2, 2015.</h4>
+
+      <p>Before describing the different properties that fonts have it is important to know exactly what they are and are not. Many people use the words <i>font</i> and <i>typeface</i> interchangeably but there is a subtle difference between them. Typeface refers to the look of the characters. Font, on the other hand, is a file that holds the typeface. Computers come pre-installed with many fonts but not all of them.</p>
+
+      <p>There are nine main font properties and they can all be assigned with the shorthand selector property, <code>font</code>. Each property is separated by a whitespace except <code>font-size</code> and <code>line-height</code> which are separated by a forward slash. Note that each of these properties can be assigned separately and using the <code>font</code> property as a catch-all is only a shorthand. Also note that the <code>font</code> shorthand doesn't require all six values, but does always require the <code>font-size</code> and <code>font-family</code> property values.</p>
+
+      <p>The first property is <code>font-style</code>. It's values are <code>normal</code>, <code>italic</code>, <code>oblique</code>, and <code>inherit</code>. The most commonly used values are <code>normal</code> and <code>italic</code>.</p>
+
+      <p>The second property is <code>font-variant</code>. It's values are <code>normal</code>, <code>small-caps</code>, and <code>inherit</code>. The most commonly used values are <code>normal</code> and <code>small-caps</code>.</p>
+
+      <p>The third property is <code>font-weight</code>. It's numeric values are <code>100</code>, <code>200</code>, <code>300</code>, <code>400</code>, <code>500</code>, <code>600</code>, <code>700</code>, <code>800</code>, and <code>900</code>. It's keyword values are <code>normal</code>, <code>bold</code>, <code>bolder</code>, <code>lighter</code>, and <code>inherit</code>. The most commonly used keyword values are <code>normal</code> and <code>bold</code>. By default <code>normal</code> maps to <code>400</code> while <code>bold</code> maps to <code>700</code>. Note that all the numeric values may not be available for some fonts and those values will round to the next closest value.</p>
+
+      <p>The fourth and fifth properties are <code>font-size</code> and <code>line-height</code>. These are separated by a forward slash and can have values of <code>px</code>, <code>em</code>, which are the standard for browsers and are equivalent to 16<code>px</code>, or any other general length values. <code>line-height</code> refers to the space between two lines of text.</p>
+
+      <p>The last property is <code>font-family</code>. This property has many values. Multiple families can be chosen with each separated by a comma. The browser chooses the leftmost family which it has available to it. It is highly suggested that the last family be a generic family. This is because all computers come pre-installed with one of each of the generic families. They are <code>serif</code>, <code>sans-serif</code>, and <code>monospace</code>.</p>
+
+      <p>We can also change the colour of text with the <code>color</code> selector property. It accepts all the standard colour value types such as RGB, RGBa, hexadecimal, keywords, HSL, and HSLa values.</p>
+
+    </section>
+
     <section id="vendors">
       <h3>Vendor Prefixes</h3>
       <h4>14:53, Friday, May 1, 2015.</h4>
@@ -84,11 +106,11 @@
 
       <p id="textBlocks">One such element is the <i>section</i> element. Everything in the certain block of text that is related can be placed into one section so that it is 'held together', so to speak. Another element is the <i>article</i>. This element is used for smaller blocks of text that can be read outside of the rest of the text and still make sense. These elements help search engines categorize our website. Search engines can drive a lot of traffic to your website so play nice.</p>
 
-      <section id="elementPairs">
+      <article id="elementPairs">
         <p id="italicize">There are also pairs of elements that appear to do the same thing but actually have slightly different uses. The first that springs to mind are the <i>italicize</i> elements. There are two versions of this. The first only italicizes the contained block of text. It has the element name of <i>i</i>. It is used only when you want to convey a different tone of voice to the reader, almost as if the text had quotes around it. The second version has the element name of <i>em</i>, as in emphasis. This also italicizes the contained text, but it also has a meaning to it. As the name suggests, it gives a stressed emphasis to the word.</p>
 
         <p id="bolding">The second pair of such elements are the <b>bold</b> elements. The first version simply bolds the contained text. It is purely for offsetting the text and suggests no overly important value of the contained text. It is given the element name of <b>b</b>. The second version also bolds the text but adds a strong importance to the contained text. As such, it's element name is <b>strong</b>.</p>
-      </section>
+      </article>
 
       <p> source: <a href="http://learn.shayhowe.com/html-css/getting-to-know-html/" target='_blank'>Shay Howe Tutorials.</a></p>
     </section>

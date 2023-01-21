@@ -13,6 +13,7 @@
   "repo": "https://github.com/gebrial/gebrial.github.io",
   "resume_url": "https://upload.wikimedia.org/wikipedia/commons/c/cc/Resume.pdf",
   "donate_urls": {
+    "donation_list" : "https://charityintelligence.ca/charity-profiles/top-10-impact-charities",
     "paypal": "https://paypal.me/",
     "patreon": "https://patreon.com/"
   },
@@ -27,7 +28,7 @@
       "red": "#CA2124"
     },
     "dark": {
-      "background": "#2E3440",
+      "background": "#000000",
       "foreground": "#E5E9F0",
       "yellow": "#5E81AC",
       "green": "#A3BE8C",

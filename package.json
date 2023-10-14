@@ -12,7 +12,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "export": "yarn build && next export",
+    "export": "yarn build && next export -o docs/",
     "serve": "serve out",
     "lint": "next lint",
     "prepare": "husky install"

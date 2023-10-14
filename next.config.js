@@ -1,1 +1,4 @@
-module.exports = {};
+module.exports = {
+    out: 'export',
+    assetPrefix: './',
+};

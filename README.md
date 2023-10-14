@@ -132,4 +132,4 @@ Based on M4TT72's awesome [Terminal](https://github.com/m4tt72/terminal).
 
 ## Sanjaya's Custom Instructions
 
-Use `yarn export` to build static version of the site to `out` folder and then copies contents to `docs` folder.
+The `.github/gh-pages.deploy.yml` github action will build and copy the output in folder `out` to a new branch `gh-pages`.

@@ -12,8 +12,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "export": "yarn build && next export && yarn copy-output",
-    "copy-output": "rm -rf ./docs && cp -R ./out ./docs",
+    "export": "next export",
     "serve": "serve out",
     "lint": "next lint",
     "prepare": "husky install"

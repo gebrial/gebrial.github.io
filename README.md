@@ -132,4 +132,4 @@ Based on M4TT72's awesome [Terminal](https://github.com/m4tt72/terminal).
 
 ## Sanjaya's Custom Instructions
 
-Use `yarn export` to build static version of site which builds files to `out` folder. Then use `yarn serve` to serve the static files.
+Use `yarn build` to build static version of site which builds files to `docs` folder.

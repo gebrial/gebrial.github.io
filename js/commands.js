@@ -146,6 +146,19 @@ export const COMMANDS = {
     },
   },
 
+  history: {
+    desc: "Show previously entered commands",
+    run(args, ctx) {
+      const entries = ctx.history;
+      if (entries.length === 0) return;
+      const width = String(entries.length).length;
+      const lines = entries.map(
+        (cmd, i) => `${String(i + 1).padStart(width)}  ${cmd}`
+      );
+      ctx.println(lines.join("\n"));
+    },
+  },
+
   run: {
     desc: "Execute a launcher (alias: ./name)",
     run(args, ctx) {

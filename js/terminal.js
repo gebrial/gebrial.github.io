@@ -70,6 +70,9 @@ export function createTerminal({ container, fsRoot }) {
     setCwd(segments) {
       state.cwd = segments;
     },
+    get history() {
+      return state.history;
+    },
   };
 
   function freezePromptLine(promptLine, value) {

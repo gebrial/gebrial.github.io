@@ -94,6 +94,38 @@ function longRows(pairs) {
   });
 }
 
+// Write-family commands. The virtual filesystem is read-only, so each refuses
+// in-character. With no operand they mirror the real coreutils "missing
+// operand" errors; two-operand commands (mv/cp) also flag a missing destination.
+function makeWriteCommand(name, { desc, missing, dest = false }) {
+  return {
+    desc,
+    hidden: true,
+    run(args, ctx) {
+      // Flags (e.g. -rf) aren't operands; count only the file/dir arguments.
+      const operands = args.filter((a) => !(a.startsWith("-") && a.length > 1));
+      if (operands.length === 0) {
+        ctx.println(`${name}: ${missing}`);
+        return;
+      }
+      if (dest && operands.length < 2) {
+        ctx.println(`${name}: missing destination file operand after '${operands[0]}'`);
+        return;
+      }
+      ctx.println(`${name}: Read-only file system`);
+    },
+  };
+}
+
+const WRITE_COMMANDS = {
+  rm: makeWriteCommand("rm", { desc: "Remove each specified file", missing: "missing operand" }),
+  rmdir: makeWriteCommand("rmdir", { desc: "Remove empty directories", missing: "missing operand" }),
+  mkdir: makeWriteCommand("mkdir", { desc: "Create directories", missing: "missing operand" }),
+  touch: makeWriteCommand("touch", { desc: "Change file timestamps", missing: "missing file operand" }),
+  mv: makeWriteCommand("mv", { desc: "Move (rename) files", missing: "missing file operand", dest: true }),
+  cp: makeWriteCommand("cp", { desc: "Copy files", missing: "missing file operand", dest: true }),
+};
+
 // `whoami` cycles through these — fragments from Shelley's "Ozymandias"
 // (public domain, 1818). Each reads as a first-person identity statement.
 // Add or trim freely.
@@ -303,6 +335,8 @@ export const COMMANDS = {
       ctx.println("guest is not in the sudoers file. This incident will be reported.");
     },
   },
+
+  ...WRITE_COMMANDS,
 
   uname: {
     desc: "Print system information",

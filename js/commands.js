@@ -45,16 +45,53 @@ function pathString(segments) {
 
 // --- Shared helpers --------------------------------------------------------
 
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 // Unix-style date string, e.g. "Tue Jul 16 14:32:05 2026".
 // Exported so phase 3's `Last login:` banner can reuse it.
 export function formatDate(d = new Date()) {
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const pad = (n) => String(n).padStart(2, "0");
   return (
-    `${days[d.getDay()]} ${months[d.getMonth()]} ${pad(d.getDate())} ` +
+    `${DAYS[d.getDay()]} ${MONTHS[d.getMonth()]} ${pad(d.getDate())} ` +
     `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${d.getFullYear()}`
   );
+}
+
+// `ls -l`-style timestamp, e.g. "Jul 16 14:32".
+function lsDate(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2, " ")} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Per-node presentation used by `ls`/`ls -l`.
+const NODE_MODE = { dir: "drwxr-xr-x", exec: "-rwxr-xr-x", file: "-rw-r--r--" };
+const NODE_SUFFIX = { dir: "/", exec: "*", file: "" };
+
+function nodeSize(node) {
+  if (node.type === "dir") return 4096;
+  if (node.type === "file") return node.content.length;
+  return 512; // exec
+}
+
+// Build styled `ls -l` rows for [name, node] pairs. Columns are padded so the
+// name and description line up across rows.
+function longRows(pairs) {
+  const stamp = lsDate(new Date());
+  const sizeW = Math.max(...pairs.map(([, n]) => String(nodeSize(n)).length));
+  const nameW = Math.max(...pairs.map(([name, n]) => (name + NODE_SUFFIX[n.type]).length));
+  return pairs.map(([name, node]) => {
+    const links = node.type === "dir" ? 2 : 1;
+    const meta =
+      `${NODE_MODE[node.type]} ${links} gebrial staff ` +
+      `${String(nodeSize(node)).padStart(sizeW)} ${stamp} `;
+    const row = [
+      { text: meta, cls: "dim" },
+      { text: (name + NODE_SUFFIX[node.type]).padEnd(nameW + 2), cls: node.type },
+    ];
+    if (node.description) row.push({ text: node.description, cls: "dim" });
+    return row;
+  });
 }
 
 // `whoami` cycles through these — fragments from Shelley's "Ozymandias"
@@ -90,7 +127,19 @@ export const COMMANDS = {
   ls: {
     desc: "List directory contents",
     run(args, ctx) {
-      const target = args[0] ?? ".";
+      // Separate flag bundles (e.g. -l, -la) from the path. We have no hidden
+      // files, so any flag other than `l` is accepted and ignored.
+      let longFmt = false;
+      let target = null;
+      for (const a of args) {
+        if (a.startsWith("-") && a.length > 1) {
+          if (a.includes("l")) longFmt = true;
+        } else if (target === null) {
+          target = a;
+        }
+      }
+      target = target ?? ".";
+
       const segments = resolveSegments(ctx.cwd, target);
       const node = nodeAt(ctx.fsRoot, segments);
       if (!node) {
@@ -98,12 +147,30 @@ export const COMMANDS = {
         return;
       }
       if (node.type !== "dir") {
-        // Real ls prints the file path itself.
-        ctx.println(target);
+        if (longFmt) {
+          const name = segments.length ? segments[segments.length - 1] : target;
+          ctx.printRows(longRows([[name, node]]));
+        } else {
+          // Real ls prints the file path itself.
+          ctx.println(target);
+        }
         return;
       }
+
       const names = Object.keys(node.children).sort();
       if (names.length === 0) return;
+
+      if (longFmt) {
+        const pairs = names.map((name) => [name, node.children[name]]);
+        const total = pairs.reduce(
+          (sum, [, n]) => sum + Math.max(1, Math.ceil(nodeSize(n) / 1024)),
+          0
+        );
+        ctx.println(`total ${total}`);
+        ctx.printRows(longRows(pairs));
+        return;
+      }
+
       const decorated = names.map((name) => {
         const child = node.children[name];
         if (child.type === "dir") return { text: name + "/", cls: "dir" };

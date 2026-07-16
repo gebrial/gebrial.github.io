@@ -86,6 +86,10 @@ body {
   color: var(--fg);
 }
 
+.ls-dim {
+  color: var(--dim);
+}
+
 .banner {
   color: var(--dim);
 }

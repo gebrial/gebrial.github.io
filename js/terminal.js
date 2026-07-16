@@ -55,6 +55,26 @@ export function createTerminal({ container, fsRoot }) {
     scrollToBottom();
   }
 
+  // Build one line from styled segments concatenated directly (no separators;
+  // callers bake alignment padding into the segment text).
+  function buildRow(segments) {
+    const line = document.createElement("div");
+    line.className = "line";
+    for (const seg of segments) {
+      const span = document.createElement("span");
+      span.className = `ls-${seg.cls}`;
+      span.textContent = seg.text;
+      line.appendChild(span);
+    }
+    return line;
+  }
+
+  // Multi-row output (e.g. `ls -l`): rows is an array of segment arrays.
+  function printRows(rows) {
+    for (const row of rows) output.appendChild(buildRow(row));
+    scrollToBottom();
+  }
+
   function clearScreen() {
     output.innerHTML = "";
   }
@@ -62,6 +82,7 @@ export function createTerminal({ container, fsRoot }) {
   const ctx = {
     println,
     printListing,
+    printRows,
     clearScreen,
     fsRoot,
     get cwd() {

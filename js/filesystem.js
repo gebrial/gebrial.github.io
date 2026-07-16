@@ -42,10 +42,16 @@ function projectReadme(p) {
 function projectNode(p) {
   return {
     type: "dir",
+    description: p.description,
     children: {
-      "README.md": { type: "file", content: p.readme || projectReadme(p) },
+      "README.md": {
+        type: "file",
+        description: "Project readme",
+        content: p.readme || projectReadme(p),
+      },
       launch: {
         type: "exec",
+        description: "Launch the live site",
         run(ctx) {
           ctx.println(`Launching ${p.slug} ...`);
           window.location.href = projectUrl(p);
@@ -60,6 +66,7 @@ export const FS_ROOT = {
   children: {
     "about.txt": {
       type: "file",
+      description: "About me",
       content: [
         "Hi, I'm Gebrial.",
         "Welcome to my terminal portfolio.",
@@ -72,10 +79,12 @@ export const FS_ROOT = {
     },
     projects: {
       type: "dir",
+      description: "Things I've built",
       children: Object.fromEntries(PROJECTS.map((p) => [p.slug, projectNode(p)])),
     },
     "contact.txt": {
       type: "file",
+      description: "How to reach me",
       content: [
         "Email:  gebrial@live.ca",
         "GitHub: https://github.com/gebrial",

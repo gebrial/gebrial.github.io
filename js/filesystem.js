@@ -12,16 +12,11 @@ const SITE_BASE = "https://gebrial.github.io";
 
 export const PROJECTS = [
   {
-    slug: "hello-world-cli",
-    description: "A tiny CLI tool that greets you in 12 languages.",
-    builtWith: "Rust",
+    slug: "gravity",
+    description: "An n-body gravitational simulation.",
+    builtWith: "Typescript for simulation and p5.js for visualization.",
     // url: override here if the project lives somewhere non-standard;
     // defaults to `${SITE_BASE}/${slug}/`
-  },
-  {
-    slug: "weather-dashboard",
-    description: "Realtime weather dashboard using a public API.",
-    builtWith: "vanilla JS + Chart.js",
   },
 ];
 

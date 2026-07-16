@@ -43,6 +43,31 @@ function pathString(segments) {
   return "/" + segments.join("/");
 }
 
+// --- Shared helpers --------------------------------------------------------
+
+// Unix-style date string, e.g. "Tue Jul 16 14:32:05 2026".
+// Exported so phase 3's `Last login:` banner can reuse it.
+export function formatDate(d = new Date()) {
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const pad = (n) => String(n).padStart(2, "0");
+  return (
+    `${days[d.getDay()]} ${months[d.getMonth()]} ${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${d.getFullYear()}`
+  );
+}
+
+// `whoami` cycles through these — fragments from Shelley's "Ozymandias"
+// (public domain, 1818). Each reads as a first-person identity statement.
+// Add or trim freely.
+const WHOAMI_LINES = [
+  "a traveller from an antique land",
+  "My name is Ozymandias",
+  "King of Kings",
+  "My name is Ozymandias, King of Kings; look on my Works, ye Mighty, and despair!",
+];
+let lastWhoami = -1;
+
 // --- Commands --------------------------------------------------------------
 
 export const COMMANDS = {
@@ -50,8 +75,9 @@ export const COMMANDS = {
     desc: "List available commands",
     run(args, ctx) {
       const lines = ["Available commands:", ""];
-      const width = Math.max(...Object.keys(COMMANDS).map((c) => c.length));
-      for (const [name, cmd] of Object.entries(COMMANDS)) {
+      const visible = Object.entries(COMMANDS).filter(([, cmd]) => !cmd.hidden);
+      const width = Math.max(...visible.map(([name]) => name.length));
+      for (const [name, cmd] of visible) {
         lines.push(`  ${name.padEnd(width + 2)}${cmd.desc}`);
       }
       lines.push("");
@@ -156,6 +182,70 @@ export const COMMANDS = {
         (cmd, i) => `${String(i + 1).padStart(width)}  ${cmd}`
       );
       ctx.println(lines.join("\n"));
+    },
+  },
+
+  whoami: {
+    desc: "Print who you are",
+    hidden: true,
+    run(args, ctx) {
+      let i;
+      do {
+        i = Math.floor(Math.random() * WHOAMI_LINES.length);
+      } while (i === lastWhoami && WHOAMI_LINES.length > 1);
+      lastWhoami = i;
+      ctx.println(WHOAMI_LINES[i]);
+    },
+  },
+
+  echo: {
+    desc: "Write arguments to the output",
+    run(args, ctx) {
+      ctx.println(args.join(" "));
+    },
+  },
+
+  date: {
+    desc: "Print the current date and time",
+    run(args, ctx) {
+      ctx.println(formatDate());
+    },
+  },
+
+  man: {
+    desc: "Show a command's manual entry",
+    run(args, ctx) {
+      if (args.length === 0) {
+        ctx.println("What manual page do you want?");
+        return;
+      }
+      const name = args[0];
+      const cmd = COMMANDS[name];
+      if (cmd) {
+        ctx.println(`${name} - ${cmd.desc}`);
+      } else {
+        ctx.println(`No manual entry for ${name}`);
+      }
+    },
+  },
+
+  sudo: {
+    desc: "Execute a command as the superuser",
+    hidden: true,
+    run(args, ctx) {
+      ctx.println("guest is not in the sudoers file. This incident will be reported.");
+    },
+  },
+
+  uname: {
+    desc: "Print system information",
+    hidden: true,
+    run(args, ctx) {
+      if (args.includes("-a")) {
+        ctx.println("GebrialOS 1.0.0 gebrial.github.io x86_64 (browser) JavaScript");
+      } else {
+        ctx.println("GebrialOS");
+      }
     },
   },
 

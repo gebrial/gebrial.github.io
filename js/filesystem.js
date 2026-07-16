@@ -76,7 +76,11 @@ export const FS_ROOT = {
     },
     "contact.txt": {
       type: "file",
-      content: ["Email:  gebrial@live.ca", "GitHub: https://github.com/gebrial"].join("\n"),
+      content: [
+        "Email:  gebrial@live.ca",
+        "GitHub: https://github.com/gebrial",
+        "LinkedIn: https://www.linkedin.com/in/gebrial/",
+      ].join("\n"),
     },
   },
 };

@@ -133,6 +133,75 @@ function closeSession(ctx, echo) {
   ctx.endSession();
 }
 
+// Resolve a path to a readable file's content, or print a cat-style error and
+// return null. Shared by cat/head/tail.
+function readFile(ctx, cmd, target) {
+  const node = nodeAt(ctx.fsRoot, resolveSegments(ctx.cwd, target));
+  if (!node) {
+    ctx.println(`${cmd}: ${target}: No such file or directory`);
+    return null;
+  }
+  if (node.type === "dir") {
+    ctx.println(`${cmd}: ${target}: Is a directory`);
+    return null;
+  }
+  if (node.type === "exec") {
+    ctx.println(
+      `${cmd}: ${target}: Permission denied (it's an executable — try ./${target.replace(/^\.\//, "")})`
+    );
+    return null;
+  }
+  return node.content;
+}
+
+// head / tail share parsing, resolution, and output shape — only line
+// selection differs, so they're built from one factory.
+// Parse `-n N`, `-nN`, and `-N` count forms; everything else is a file operand.
+function parseLineArgs(args) {
+  let count = 10;
+  const files = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "-n") {
+      const v = parseInt(args[++i], 10);
+      if (!Number.isNaN(v)) count = v;
+    } else if (/^-n\d+$/.test(a)) {
+      count = parseInt(a.slice(2), 10);
+    } else if (/^-\d+$/.test(a)) {
+      count = parseInt(a.slice(1), 10);
+    } else if (a.startsWith("-") && a.length > 1) {
+      // unknown flag: ignore (we only support -n / -N)
+    } else {
+      files.push(a);
+    }
+  }
+  return { count: Math.max(0, count), files };
+}
+
+function makeLineCommand(name, desc, take) {
+  return {
+    desc,
+    run(args, ctx) {
+      const { count, files } = parseLineArgs(args);
+      if (files.length === 0) {
+        ctx.println(`usage: ${name} [-n N] <file>`);
+        return;
+      }
+      files.forEach((target, i) => {
+        const content = readFile(ctx, name, target);
+        if (content === null) return;
+        if (files.length > 1) {
+          // multi-file: `==> name <==` headers, blank line between
+          if (i > 0) ctx.println("");
+          ctx.println(`==> ${target} <==`);
+        }
+        const selected = take(content.split("\n"), count);
+        if (selected.length) ctx.println(selected.join("\n"));
+      });
+    },
+  };
+}
+
 // `whoami` cycles through these — fragments from Shelley's "Ozymandias"
 // (public domain, 1818). Each reads as a first-person identity statement.
 // Add or trim freely.
@@ -320,6 +389,12 @@ export const COMMANDS = {
       }
     },
   },
+
+  head: makeLineCommand("head", "Output the first part of a file", (lines, n) => lines.slice(0, n)),
+
+  tail: makeLineCommand("tail", "Output the last part of a file", (lines, n) =>
+    lines.slice(Math.max(0, lines.length - n))
+  ),
 
   pwd: {
     desc: "Print working directory",

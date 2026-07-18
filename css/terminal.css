@@ -61,15 +61,74 @@ body {
   word-break: break-word;
 }
 
-.prompt-input {
+.input-wrap {
+  position: relative;
   flex: 1;
+  min-width: 0;
+}
+
+.prompt-input {
+  width: 100%;
   background: transparent;
   border: none;
   outline: none;
+  padding: 0;
   color: var(--fg);
   font: inherit;
-  caret-color: var(--fg);
+  caret-color: transparent;
   min-width: 2ch;
+}
+
+/* Custom block cursor overlaying the caret cell. left/width set inline by JS.
+   The inner character is centered so it lines up with the input's own glyph —
+   otherwise it appears to jump when the block blinks. */
+.cursor {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 1.2em;
+  display: flex;
+  align-items: center;
+  line-height: 1;
+  background: var(--fg);
+  color: var(--bg);
+  white-space: pre;
+  pointer-events: none;
+  animation: blink 1s step-end infinite;
+}
+
+.cursor.solid {
+  animation: none;
+  opacity: 1;
+}
+
+.cursor.hollow {
+  background: transparent;
+  color: transparent;
+  box-shadow: inset 0 0 0 1px var(--fg);
+  animation: none;
+  opacity: 1;
+}
+
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Hidden span used to measure text width for cursor positioning. */
+.measure {
+  position: absolute;
+  visibility: hidden;
+  white-space: pre;
+  pointer-events: none;
+  left: 0;
+  top: 0;
 }
 
 .ls-dir {

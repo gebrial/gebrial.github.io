@@ -9,12 +9,35 @@ export function createTerminal({ container, fsRoot }) {
   output.className = "terminal-output";
   container.appendChild(output);
 
+  // Hidden span for measuring text width (inherits the terminal font, so it
+  // stays correct under the responsive clamp() font-size). Used to place the
+  // block cursor at the caret.
+  const measurer = document.createElement("span");
+  measurer.className = "measure";
+  container.appendChild(measurer);
+
   const state = {
     cwd: [],
     history: [],
     historyIndex: 0, // points one past the last entry when not browsing
     activeInput: null,
+    updateCursor: null,
   };
+
+  // Position the block cursor over the caret cell of the given input.
+  function updateCursor(input, cursorEl) {
+    const value = input.value;
+    const pos = input.selectionStart ?? value.length;
+    measurer.textContent = value.slice(0, pos);
+    const x = measurer.getBoundingClientRect().width - input.scrollLeft;
+    const ch = value[pos] || "";
+    cursorEl.textContent = ch;
+    measurer.textContent = ch || " ";
+    cursorEl.style.width = measurer.getBoundingClientRect().width + "px";
+    cursorEl.style.left = x + "px";
+    // Hide when the caret has scrolled out of a long line's visible area.
+    cursorEl.style.visibility = x < 0 || x > input.clientWidth ? "hidden" : "visible";
+  }
 
   function promptText() {
     const path = state.cwd.length === 0 ? "~" : "~/" + state.cwd.join("/");
@@ -97,8 +120,8 @@ export function createTerminal({ container, fsRoot }) {
   };
 
   function freezePromptLine(promptLine, value) {
-    // Replace the live input with plain text in scrollback.
-    promptLine.querySelector("input").remove();
+    // Replace the live input (and its cursor overlay) with plain text.
+    promptLine.querySelector(".input-wrap").remove();
     const echoed = document.createElement("span");
     echoed.className = "echoed";
     echoed.textContent = value;
@@ -114,6 +137,9 @@ export function createTerminal({ container, fsRoot }) {
     label.textContent = promptText();
     promptLine.appendChild(label);
 
+    const wrap = document.createElement("div");
+    wrap.className = "input-wrap";
+
     const input = document.createElement("input");
     input.type = "text";
     input.className = "prompt-input";
@@ -121,16 +147,44 @@ export function createTerminal({ container, fsRoot }) {
     input.autocomplete = "off";
     input.spellcheck = false;
     input.setAttribute("aria-label", "terminal command input");
-    promptLine.appendChild(input);
+    wrap.appendChild(input);
 
+    const cursorEl = document.createElement("span");
+    cursorEl.className = "cursor";
+    wrap.appendChild(cursorEl);
+
+    promptLine.appendChild(wrap);
     output.appendChild(promptLine);
+
+    const update = () => updateCursor(input, cursorEl);
     state.activeInput = input;
+    state.updateCursor = update;
+
+    // Keep the block solid while actively typing; resume blinking when idle.
+    let typingTimer = null;
+    const markTyping = () => {
+      cursorEl.classList.add("solid");
+      clearTimeout(typingTimer);
+      typingTimer = setTimeout(() => cursorEl.classList.remove("solid"), 500);
+    };
+
+    input.addEventListener("input", () => {
+      markTyping();
+      update();
+    });
+    input.addEventListener("keyup", update);
+    input.addEventListener("click", update);
+    input.addEventListener("scroll", update);
+    input.addEventListener("focus", () => cursorEl.classList.remove("hollow"));
+    input.addEventListener("blur", () => cursorEl.classList.add("hollow"));
 
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         const value = input.value;
+        clearTimeout(typingTimer);
         freezePromptLine(promptLine, value);
         state.activeInput = null;
+        state.updateCursor = null;
 
         const trimmed = value.trim();
         if (trimmed) {
@@ -145,15 +199,23 @@ export function createTerminal({ container, fsRoot }) {
         if (state.historyIndex > 0) {
           state.historyIndex--;
           input.value = state.history[state.historyIndex];
+          update();
           // put caret at end
-          requestAnimationFrame(() => input.setSelectionRange(input.value.length, input.value.length));
+          requestAnimationFrame(() => {
+            input.setSelectionRange(input.value.length, input.value.length);
+            update();
+          });
         }
       } else if (e.key === "Tab") {
         e.preventDefault();
         const result = complete(input.value, ctx);
         if (result.newInput !== null) {
           input.value = result.newInput;
-          requestAnimationFrame(() => input.setSelectionRange(input.value.length, input.value.length));
+          update();
+          requestAnimationFrame(() => {
+            input.setSelectionRange(input.value.length, input.value.length);
+            update();
+          });
         }
         if (result.candidates.length > 1) {
           // Show the options above the live prompt, like bash does.
@@ -169,10 +231,12 @@ export function createTerminal({ container, fsRoot }) {
           state.historyIndex = state.history.length;
           input.value = "";
         }
+        update();
       }
     });
 
     input.focus();
+    update();
     scrollToBottom();
   }
 
@@ -193,6 +257,7 @@ export function createTerminal({ container, fsRoot }) {
       if (!input) return;
       input.value = text;
       input.focus();
+      state.updateCursor?.();
       if (submit) {
         input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
       }

@@ -215,6 +215,63 @@ export const COMMANDS = {
     },
   },
 
+  tree: {
+    desc: "List directory contents recursively",
+    run(args, ctx) {
+      // Same flag handling as ls: skip flag bundles, first non-flag is the path.
+      let target = null;
+      for (const a of args) {
+        if (a.startsWith("-") && a.length > 1) continue;
+        if (target === null) target = a;
+      }
+      target = target ?? ".";
+
+      const node = nodeAt(ctx.fsRoot, resolveSegments(ctx.cwd, target));
+      if (!node) {
+        ctx.println(`${target}  [error opening dir]`);
+        ctx.println("");
+        ctx.println("0 directories, 0 files");
+        return;
+      }
+
+      const counts = { dirs: 0, files: 0 };
+      const rows = [[{ text: target, cls: node.type === "dir" ? "dir" : node.type }]];
+
+      function walk(dir, prefix) {
+        const names = Object.keys(dir.children).sort();
+        names.forEach((name, i) => {
+          const child = dir.children[name];
+          const last = i === names.length - 1;
+          rows.push([
+            { text: prefix + (last ? "└── " : "├── "), cls: "dim" },
+            { text: name, cls: child.type },
+          ]);
+          if (child.type === "dir") {
+            counts.dirs++;
+            walk(child, prefix + (last ? "    " : "│   "));
+          } else {
+            counts.files++;
+          }
+        });
+      }
+
+      if (node.type === "dir") {
+        walk(node, "");
+      } else {
+        counts.files++;
+        rows.length = 0;
+        rows.push([{ text: target, cls: node.type }]);
+      }
+
+      ctx.printRows(rows);
+      ctx.println("");
+      ctx.println(
+        `${counts.dirs} ${counts.dirs === 1 ? "directory" : "directories"}, ` +
+          `${counts.files} ${counts.files === 1 ? "file" : "files"}`
+      );
+    },
+  },
+
   cd: {
     desc: "Change directory",
     run(args, ctx) {

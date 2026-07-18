@@ -374,18 +374,8 @@ export const COMMANDS = {
         return;
       }
       for (const target of args) {
-        const node = nodeAt(ctx.fsRoot, resolveSegments(ctx.cwd, target));
-        if (!node) {
-          ctx.println(`cat: ${target}: No such file or directory`);
-        } else if (node.type === "dir") {
-          ctx.println(`cat: ${target}: Is a directory`);
-        } else if (node.type === "exec") {
-          ctx.println(
-            `cat: ${target}: Permission denied (it's an executable — try ./${target.replace(/^\.\//, "")})`
-          );
-        } else {
-          ctx.println(node.content);
-        }
+        const content = readFile(ctx, "cat", target);
+        if (content !== null) ctx.println(content);
       }
     },
   },

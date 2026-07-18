@@ -126,6 +126,13 @@ const WRITE_COMMANDS = {
   cp: makeWriteCommand("cp", { desc: "Copy files", missing: "missing file operand", dest: true }),
 };
 
+// exit / logout — end the (pretend SSH) session and leave the terminal inert.
+function closeSession(ctx, echo) {
+  if (echo) ctx.println(echo); // logout echoes "logout"; exit doesn't
+  ctx.println(`Connection to ${ctx.host} closed.`);
+  ctx.endSession();
+}
+
 // `whoami` cycles through these — fragments from Shelley's "Ozymandias"
 // (public domain, 1818). Each reads as a first-person identity statement.
 // Add or trim freely.
@@ -325,6 +332,20 @@ export const COMMANDS = {
     desc: "Clear the terminal",
     run(args, ctx) {
       ctx.clearScreen();
+    },
+  },
+
+  exit: {
+    desc: "Close the session",
+    run(args, ctx) {
+      closeSession(ctx);
+    },
+  },
+
+  logout: {
+    desc: "Log out and close the session",
+    run(args, ctx) {
+      closeSession(ctx, "logout");
     },
   },
 

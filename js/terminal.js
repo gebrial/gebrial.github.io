@@ -22,6 +22,7 @@ export function createTerminal({ container, fsRoot }) {
     historyIndex: 0, // points one past the last entry when not browsing
     activeInput: null,
     updateCursor: null,
+    closed: false,
   };
 
   // Position the block cursor over the caret cell of the given input.
@@ -102,12 +103,26 @@ export function createTerminal({ container, fsRoot }) {
     output.innerHTML = "";
   }
 
+  // End the (pretend SSH) session: stop the prompt loop and leave the terminal
+  // inert. Only a manual browser reload reconnects.
+  function endSession() {
+    state.closed = true;
+    state.activeInput = null;
+    state.updateCursor = null;
+    output.appendChild(buildRow([{ text: "[Process completed]", cls: "dim" }]));
+    scrollToBottom();
+  }
+
   const ctx = {
     println,
     printListing,
     printRows,
     clearScreen,
+    endSession,
     fsRoot,
+    get host() {
+      return HOST;
+    },
     get cwd() {
       return state.cwd;
     },
@@ -193,7 +208,7 @@ export function createTerminal({ container, fsRoot }) {
         state.historyIndex = state.history.length;
 
         dispatch(value, ctx);
-        spawnPrompt();
+        if (!state.closed) spawnPrompt();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         if (state.historyIndex > 0) {

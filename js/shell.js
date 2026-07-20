@@ -107,15 +107,15 @@ function completeCommandName(prefix) {
 // into a directory part (kept verbatim) and the basename being completed.
 // Returns null when `current` doesn't point at a real directory.
 function completePath(current, ctx) {
-  let rest = current;
+  let path = current;
   let dotSlash = "";
-  if (rest.startsWith("./")) {
+  if (path.startsWith("./")) {
     dotSlash = "./";
-    rest = rest.slice(2);
+    path = path.slice(2);
   }
-  const slash = rest.lastIndexOf("/");
-  const dirPart = slash >= 0 ? rest.slice(0, slash + 1) : "";
-  const base = slash >= 0 ? rest.slice(slash + 1) : rest;
+  const slash = path.lastIndexOf("/");
+  const dirPart = slash >= 0 ? path.slice(0, slash + 1) : "";
+  const base = slash >= 0 ? path.slice(slash + 1) : path;
   const dirNode = nodeAt(ctx.fsRoot, resolveSegments(ctx.cwd, dirPart === "" ? "." : dirPart));
   if (!dirNode || dirNode.type !== "dir") return null;
   return Object.keys(dirNode.children)

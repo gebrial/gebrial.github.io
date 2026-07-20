@@ -131,25 +131,26 @@ body {
   top: 0;
 }
 
-.ls-dir {
+/* Styled output segments, used by ls, tree, grep, and other row-based output. */
+.seg-dir {
   color: var(--accent);
   font-weight: bold;
 }
 
-.ls-exec {
+.seg-exec {
   color: var(--fg);
   font-weight: bold;
 }
 
-.ls-file {
+.seg-file {
   color: var(--fg);
 }
 
-.ls-dim {
+.seg-dim {
   color: var(--dim);
 }
 
-.ls-match {
+.seg-match {
   color: var(--accent);
   font-weight: bold;
 }

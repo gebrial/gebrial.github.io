@@ -67,13 +67,14 @@ export function createTerminal({ container, fsRoot }) {
     scrollToBottom();
   }
 
-  // Build a colorized listing line from entries as [{text, cls}]
+  // Build one line from styled [{text, cls}] segments, two spaces between each
+  // (used by `ls` and the tab-completion candidate list).
   function buildListingLine(entries) {
     const line = document.createElement("div");
     line.className = "line";
     entries.forEach((entry, i) => {
       const span = document.createElement("span");
-      span.className = `ls-${entry.cls}`;
+      span.className = `seg-${entry.cls}`;
       span.textContent = entry.text;
       line.appendChild(span);
       if (i < entries.length - 1) line.appendChild(document.createTextNode("  "));
@@ -81,7 +82,7 @@ export function createTerminal({ container, fsRoot }) {
     return line;
   }
 
-  // Colorized `ls` listing: entries as [{text, cls}]
+  // Print one spaced listing line (e.g. plain `ls`).
   function printListing(entries) {
     output.appendChild(buildListingLine(entries));
     scrollToBottom();
@@ -94,7 +95,7 @@ export function createTerminal({ container, fsRoot }) {
     line.className = "line";
     for (const seg of segments) {
       const span = document.createElement("span");
-      span.className = `ls-${seg.cls}`;
+      span.className = `seg-${seg.cls}`;
       span.textContent = seg.text;
       line.appendChild(span);
     }

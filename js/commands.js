@@ -1,11 +1,17 @@
 // The command table and command-specific helpers.
 //
-// Every handler receives (args, ctx) where ctx provides:
-//   ctx.println(text)   — append a line (or multi-line string) to scrollback
-//   ctx.cwd             — current directory as an array of segments
-//   ctx.setCwd(array)   — change directory
-//   ctx.clearScreen()   — wipe scrollback
-//   ctx.fsRoot          — the virtual filesystem root node
+// Each command is { desc, hidden?, run(args, ctx) }. `args` is the expanded
+// argument list (quotes/globs already applied by the shell). The `ctx` seam,
+// built in terminal.js, provides:
+//   ctx.println(text)         — append a line (or multi-line string) to scrollback
+//   ctx.printListing(entries) — one line of styled [{text, cls}] segments (spaced)
+//   ctx.printRows(rows)       — many lines, each an array of styled segments
+//   ctx.clearScreen()         — wipe scrollback
+//   ctx.endSession()          — stop the prompt loop (used by exit/logout)
+//   ctx.fsRoot                — the virtual filesystem root node
+//   ctx.host                  — the prompt host, e.g. "gebrial.github.io"
+//   ctx.cwd / ctx.setCwd(arr) — current directory as an array of segments
+//   ctx.history               — the command history array
 
 import { resolveSegments, nodeAt, pathString } from "./paths.js";
 import { formatDate, nodeSize, longRows, countText, highlightSegments } from "./format.js";
@@ -17,11 +23,11 @@ import { formatDate, nodeSize, longRows, countText, highlightSegments } from "./
 function splitFlags(args) {
   const flags = new Set();
   const operands = [];
-  for (const a of args) {
-    if (a.startsWith("-") && a.length > 1) {
-      for (const ch of a.slice(1)) flags.add(ch);
+  for (const arg of args) {
+    if (arg.startsWith("-") && arg.length > 1) {
+      for (const letter of arg.slice(1)) flags.add(letter);
     } else {
-      operands.push(a);
+      operands.push(arg);
     }
   }
   return { flags, operands };
@@ -94,24 +100,26 @@ function parseLineArgs(args) {
   let count = 10;
   const files = [];
   for (let i = 0; i < args.length; i++) {
-    const a = args[i];
-    if (a === "-n") {
-      const v = parseInt(args[++i], 10);
-      if (!Number.isNaN(v)) count = v;
-    } else if (/^-n\d+$/.test(a)) {
-      count = parseInt(a.slice(2), 10);
-    } else if (/^-\d+$/.test(a)) {
-      count = parseInt(a.slice(1), 10);
-    } else if (a.startsWith("-") && a.length > 1) {
+    const arg = args[i];
+    if (arg === "-n") {
+      const value = parseInt(args[++i], 10);
+      if (!Number.isNaN(value)) count = value;
+    } else if (/^-n\d+$/.test(arg)) {
+      count = parseInt(arg.slice(2), 10);
+    } else if (/^-\d+$/.test(arg)) {
+      count = parseInt(arg.slice(1), 10);
+    } else if (arg.startsWith("-") && arg.length > 1) {
       // unknown flag: ignore (we only support -n / -N)
     } else {
-      files.push(a);
+      files.push(arg);
     }
   }
   return { count: Math.max(0, count), files };
 }
 
-function makeLineCommand(name, desc, take) {
+// `selectLines(lines, count)` picks which lines to print (head: first N,
+// tail: last N).
+function makeLineCommand(name, desc, selectLines) {
   return {
     desc,
     run(args, ctx) {
@@ -128,7 +136,7 @@ function makeLineCommand(name, desc, take) {
           if (i > 0) ctx.println("");
           ctx.println(`==> ${target} <==`);
         }
-        const selected = take(content.split("\n"), count);
+        const selected = selectLines(content.split("\n"), count);
         if (selected.length) ctx.println(selected.join("\n"));
       });
     },
@@ -349,7 +357,7 @@ export const COMMANDS = {
         ctx.println("usage: wc [-lwcm] <file>");
         return;
       }
-      const cols = selected.size ? order.filter((k) => selected.has(k)) : ["lines", "words", "bytes"];
+      const cols = selected.size ? order.filter((col) => selected.has(col)) : ["lines", "words", "bytes"];
 
       const rows = [];
       const totals = { lines: 0, words: 0, chars: 0, bytes: 0 };
@@ -358,17 +366,17 @@ export const COMMANDS = {
         if (content === null) continue;
         const counts = countText(content);
         rows.push({ counts, name: target });
-        for (const k of order) totals[k] += counts[k];
+        for (const col of order) totals[col] += counts[col];
       }
       if (rows.length === 0) return;
       if (rows.length > 1) rows.push({ counts: totals, name: "total" });
 
       // Right-align every count to the widest so columns line up (like real wc).
       let width = 1;
-      for (const r of rows) for (const k of cols) width = Math.max(width, String(r.counts[k]).length);
-      for (const r of rows) {
-        const nums = cols.map((k) => String(r.counts[k]).padStart(width)).join(" ");
-        ctx.println(`${nums} ${r.name}`);
+      for (const row of rows) for (const col of cols) width = Math.max(width, String(row.counts[col]).length);
+      for (const row of rows) {
+        const nums = cols.map((col) => String(row.counts[col]).padStart(width)).join(" ");
+        ctx.println(`${nums} ${row.name}`);
       }
     },
   },

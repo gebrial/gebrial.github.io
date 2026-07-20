@@ -24,10 +24,18 @@ files directly.
 | File | Purpose |
 |---|---|
 | [js/filesystem.js](js/filesystem.js) | Virtual filesystem config — the only file touched to add a project |
-| [js/commands.js](js/commands.js) | Command implementations, path resolution, tab-completion, dispatch |
-| [js/terminal.js](js/terminal.js) | Rendering engine: prompt lifecycle, scrollback, history, key handling |
+| [js/commands.js](js/commands.js) | The `COMMANDS` table and command-specific helpers |
+| [js/shell.js](js/shell.js) | Shell layer: tokenizing (quotes), glob expansion, dispatch, tab-completion |
+| [js/paths.js](js/paths.js) | Path resolution and filesystem walking (`resolveSegments`, `nodeAt`) |
+| [js/format.js](js/format.js) | Presentation helpers: dates, `ls -l` rows, counts, grep highlighting |
+| [js/input.js](js/input.js) | Pure prompt-input logic: history navigation, block-cursor geometry |
+| [js/terminal.js](js/terminal.js) | Rendering engine: prompt lifecycle, scrollback, cursor, key handling |
 | [js/main.js](js/main.js) | Bootstrap: welcome banner, quick-command bar wiring |
 | [css/terminal.css](css/terminal.css) | Styling and mobile layout |
+
+The pure logic (`shell`, `paths`, `format`, `input`, and the `COMMANDS` table)
+is DOM-free and covered by the [test suite](#tests); `terminal.js` holds the
+DOM/event wiring.
 
 ## Adding a project
 

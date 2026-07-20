@@ -154,6 +154,17 @@ function readFile(ctx, cmd, target) {
   return node.content;
 }
 
+// Line/word/char/byte counts for `wc`. `lines` counts newline characters, like
+// real wc (so a non-newline-terminated file reports one fewer than `cat` shows).
+function countText(content) {
+  return {
+    lines: (content.match(/\n/g) || []).length,
+    words: (content.match(/\S+/g) || []).length,
+    chars: content.length,
+    bytes: new TextEncoder().encode(content).length,
+  };
+}
+
 // head / tail share parsing, resolution, and output shape — only line
 // selection differs, so they're built from one factory.
 // Parse `-n N`, `-nN`, and `-N` count forms; everything else is a file operand.
@@ -385,6 +396,48 @@ export const COMMANDS = {
   tail: makeLineCommand("tail", "Output the last part of a file", (lines, n) =>
     lines.slice(Math.max(0, lines.length - n))
   ),
+
+  wc: {
+    desc: "Count lines, words, and bytes in a file",
+    run(args, ctx) {
+      const flagMap = { l: "lines", w: "words", m: "chars", c: "bytes" };
+      const order = ["lines", "words", "chars", "bytes"]; // canonical print order
+      const selected = new Set();
+      const files = [];
+      for (const a of args) {
+        if (a.length > 1 && a.startsWith("-")) {
+          for (const ch of a.slice(1)) if (flagMap[ch]) selected.add(flagMap[ch]);
+        } else {
+          files.push(a);
+        }
+      }
+      if (files.length === 0) {
+        ctx.println("usage: wc [-lwcm] <file>");
+        return;
+      }
+      const cols = selected.size ? order.filter((k) => selected.has(k)) : ["lines", "words", "bytes"];
+
+      const rows = [];
+      const totals = { lines: 0, words: 0, chars: 0, bytes: 0 };
+      for (const target of files) {
+        const content = readFile(ctx, "wc", target); // null => error printed, skip
+        if (content === null) continue;
+        const counts = countText(content);
+        rows.push({ counts, name: target });
+        for (const k of order) totals[k] += counts[k];
+      }
+      if (rows.length === 0) return;
+      if (rows.length > 1) rows.push({ counts: totals, name: "total" });
+
+      // Right-align every count to the widest so columns line up (like real wc).
+      let width = 1;
+      for (const r of rows) for (const k of cols) width = Math.max(width, String(r.counts[k]).length);
+      for (const r of rows) {
+        const nums = cols.map((k) => String(r.counts[k]).padStart(width)).join(" ");
+        ctx.println(`${nums} ${r.name}`);
+      }
+    },
+  },
 
   pwd: {
     desc: "Print working directory",

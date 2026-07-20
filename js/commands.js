@@ -173,13 +173,13 @@ function highlightSegments(line, re) {
   re.lastIndex = 0;
   let m;
   while ((m = re.exec(line)) !== null) {
-    if (m.index > last) segs.push({ text: line.slice(last, m.index), cls: "file" });
-    if (m[0].length > 0) {
-      segs.push({ text: m[0], cls: "match" });
-      last = m.index + m[0].length;
-    } else {
-      re.lastIndex++; // zero-width match (e.g. ^, x*): don't loop forever
+    if (m[0].length === 0) {
+      re.lastIndex++; // zero-width match (empty, ^, x*): skip, don't loop forever
+      continue;
     }
+    if (m.index > last) segs.push({ text: line.slice(last, m.index), cls: "file" });
+    segs.push({ text: m[0], cls: "match" });
+    last = m.index + m[0].length;
   }
   if (last < line.length) segs.push({ text: line.slice(last), cls: "file" });
   if (segs.length === 0) segs.push({ text: line, cls: "file" }); // empty line
@@ -705,10 +705,41 @@ export function complete(rawInput, ctx) {
 
 // --- Dispatch --------------------------------------------------------------
 
+// Split a command line into argument tokens, honoring '...' and "..." quoting.
+// Both quote styles are literal (no expansion); quotes are stripped. An
+// unterminated quote runs to end of line. Whitespace outside quotes separates.
+export function tokenize(input) {
+  const tokens = [];
+  let cur = "";
+  let inToken = false;
+  let quote = null;
+  for (const ch of input) {
+    if (quote) {
+      if (ch === quote) quote = null;
+      else cur += ch;
+      inToken = true;
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+      inToken = true;
+    } else if (/\s/.test(ch)) {
+      if (inToken) {
+        tokens.push(cur);
+        cur = "";
+        inToken = false;
+      }
+    } else {
+      cur += ch;
+      inToken = true;
+    }
+  }
+  if (inToken) tokens.push(cur);
+  return tokens;
+}
+
 export function dispatch(rawInput, ctx) {
-  const trimmed = rawInput.trim();
-  if (!trimmed) return;
-  let [cmd, ...args] = trimmed.split(/\s+/);
+  const tokens = tokenize(rawInput);
+  if (tokens.length === 0) return;
+  let [cmd, ...args] = tokens;
   if (cmd.startsWith("./")) {
     args = [cmd.slice(2), ...args];
     cmd = "run";

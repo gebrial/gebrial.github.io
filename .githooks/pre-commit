@@ -1,0 +1,7 @@
+#!/bin/sh
+# Run the test suite; a failure blocks the commit.
+# Activate once per clone with: git config core.hooksPath .githooks
+node --test || {
+  echo "pre-commit: tests failed — commit aborted." >&2
+  exit 1
+}

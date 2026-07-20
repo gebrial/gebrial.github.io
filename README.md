@@ -59,3 +59,22 @@ npx http-server -p 8000
 ```
 
 then visit http://localhost:8000.
+
+## Tests
+
+Zero-dependency test suite using Node's built-in runner (no packages to
+install):
+
+```
+npm test        # or: node --test
+```
+
+To run the tests automatically before every commit, activate the tracked
+hooks once per clone:
+
+```
+git config core.hooksPath .githooks
+```
+
+A failing suite blocks the commit (`git commit --no-verify` bypasses in a
+pinch).

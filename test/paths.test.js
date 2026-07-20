@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { resolveSegments, nodeAt } from "../js/commands.js";
+import { resolveSegments, nodeAt } from "../js/paths.js";
 import { FS_ROOT } from "../js/filesystem.js";
 
 test("relative paths resolve against cwd", () => {

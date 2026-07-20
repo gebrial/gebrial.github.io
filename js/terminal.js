@@ -1,6 +1,6 @@
 // Terminal engine: scrollback rendering, prompt/input lifecycle, history.
 
-import { dispatch, complete } from "./commands.js";
+import { dispatch, complete } from "./shell.js";
 
 const HOST = "gebrial.github.io";
 

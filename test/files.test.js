@@ -1,7 +1,7 @@
 // cat / head / tail / wc / grep — output shapes and error strings.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dispatch } from "../js/commands.js";
+import { dispatch } from "../js/shell.js";
 import { makeCtx, ABOUT_LINES, CONTACT_LINES } from "./helpers.js";
 
 const runIn = (input, opts) => {

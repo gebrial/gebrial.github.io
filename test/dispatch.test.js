@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dispatch } from "../js/commands.js";
+import { dispatch } from "../js/shell.js";
 import { makeCtx, stubWindow } from "./helpers.js";
 
 test("routes to a command with its args", () => {

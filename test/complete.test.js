@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { complete, COMMANDS } from "../js/commands.js";
+import { complete } from "../js/shell.js";
+import { COMMANDS } from "../js/commands.js";
 import { makeCtx } from "./helpers.js";
 
 test("unique command completes with a trailing space", () => {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { tokenize } from "../js/commands.js";
+import { tokenize } from "../js/shell.js";
 
 const values = (input) => tokenize(input).map((t) => t.value);
 

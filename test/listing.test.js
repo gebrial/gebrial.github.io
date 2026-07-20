@@ -1,7 +1,7 @@
 // ls / ls -l / tree — structure, decorations, and counts.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dispatch } from "../js/commands.js";
+import { dispatch } from "../js/shell.js";
 import { makeCtx } from "./helpers.js";
 
 const runIn = (input, opts) => {

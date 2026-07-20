@@ -1,7 +1,8 @@
 // help, navigation, history, write-family, session, and flavor commands.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dispatch, formatDate } from "../js/commands.js";
+import { dispatch } from "../js/shell.js";
+import { formatDate } from "../js/format.js";
 import { makeCtx } from "./helpers.js";
 
 const runIn = (input, opts) => {

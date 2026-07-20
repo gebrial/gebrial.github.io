@@ -1,4 +1,4 @@
-// Command implementations and dispatch for the terminal.
+// The command table and command-specific helpers.
 //
 // Every handler receives (args, ctx) where ctx provides:
 //   ctx.println(text)   — append a line (or multi-line string) to scrollback
@@ -7,92 +7,8 @@
 //   ctx.clearScreen()   — wipe scrollback
 //   ctx.fsRoot          — the virtual filesystem root node
 
-// --- Path resolution -------------------------------------------------------
-
-// Resolve a path string against cwd segments. Returns segments array or null
-// if the path steps above root in a malformed way (".." at root clamps, like
-// real shells).
-export function resolveSegments(cwd, input) {
-  const absolute = input.startsWith("/") || input.startsWith("~");
-  const stripped = input.replace(/^~\/?/, "").replace(/^\/+/, "");
-  const parts = stripped.split("/").filter((s) => s.length > 0);
-  const segments = absolute ? [] : [...cwd];
-  for (const part of parts) {
-    if (part === ".") continue;
-    if (part === "..") {
-      segments.pop(); // popping at root is a no-op, like `cd ..` in /
-    } else {
-      segments.push(part);
-    }
-  }
-  return segments;
-}
-
-// Walk the tree; returns the node at segments, or null if any hop is missing
-// or a non-dir is used as an intermediate directory.
-export function nodeAt(fsRoot, segments) {
-  let node = fsRoot;
-  for (const seg of segments) {
-    if (!node || node.type !== "dir" || !(seg in node.children)) return null;
-    node = node.children[seg];
-  }
-  return node;
-}
-
-function pathString(segments) {
-  return "/" + segments.join("/");
-}
-
-// --- Shared helpers --------------------------------------------------------
-
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-// Unix-style date string, e.g. "Tue Jul 16 14:32:05 2026".
-// Exported so phase 3's `Last login:` banner can reuse it.
-export function formatDate(d = new Date()) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return (
-    `${DAYS[d.getDay()]} ${MONTHS[d.getMonth()]} ${pad(d.getDate())} ` +
-    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${d.getFullYear()}`
-  );
-}
-
-// `ls -l`-style timestamp, e.g. "Jul 16 14:32".
-function lsDate(d) {
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${MONTHS[d.getMonth()]} ${String(d.getDate()).padStart(2, " ")} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-// Per-node presentation used by `ls`/`ls -l`.
-const NODE_MODE = { dir: "drwxr-xr-x", exec: "-rwxr-xr-x", file: "-rw-r--r--" };
-const NODE_SUFFIX = { dir: "/", exec: "*", file: "" };
-
-function nodeSize(node) {
-  if (node.type === "dir") return 4096;
-  if (node.type === "file") return node.content.length;
-  return 512; // exec
-}
-
-// Build styled `ls -l` rows for [name, node] pairs. Columns are padded so the
-// name and description line up across rows.
-function longRows(pairs) {
-  const stamp = lsDate(new Date());
-  const sizeW = Math.max(...pairs.map(([, n]) => String(nodeSize(n)).length));
-  const nameW = Math.max(...pairs.map(([name, n]) => (name + NODE_SUFFIX[n.type]).length));
-  return pairs.map(([name, node]) => {
-    const links = node.type === "dir" ? 2 : 1;
-    const meta =
-      `${NODE_MODE[node.type]} ${links} gebrial staff ` +
-      `${String(nodeSize(node)).padStart(sizeW)} ${stamp} `;
-    const row = [
-      { text: meta, cls: "dim" },
-      { text: (name + NODE_SUFFIX[node.type]).padEnd(nameW + 2), cls: node.type },
-    ];
-    if (node.description) row.push({ text: node.description, cls: "dim" });
-    return row;
-  });
-}
+import { resolveSegments, nodeAt, pathString } from "./paths.js";
+import { formatDate, nodeSize, longRows, countText, highlightSegments } from "./format.js";
 
 // Write-family commands. The virtual filesystem is read-only, so each refuses
 // in-character. With no operand they mirror the real coreutils "missing
@@ -134,7 +50,7 @@ function closeSession(ctx, echo) {
 }
 
 // Resolve a path to a readable file's content, or print a cat-style error and
-// return null. Shared by cat/head/tail.
+// return null. Shared by cat/head/tail/wc/grep.
 function readFile(ctx, cmd, target) {
   const node = nodeAt(ctx.fsRoot, resolveSegments(ctx.cwd, target));
   if (!node) {
@@ -152,38 +68,6 @@ function readFile(ctx, cmd, target) {
     return null;
   }
   return node.content;
-}
-
-// Line/word/char/byte counts for `wc`. `lines` counts newline characters, like
-// real wc (so a non-newline-terminated file reports one fewer than `cat` shows).
-function countText(content) {
-  return {
-    lines: (content.match(/\n/g) || []).length,
-    words: (content.match(/\S+/g) || []).length,
-    chars: content.length,
-    bytes: new TextEncoder().encode(content).length,
-  };
-}
-
-// Split `line` into styled segments for grep: matched runs get cls "match",
-// the rest cls "file". `re` must be a global regex.
-function highlightSegments(line, re) {
-  const segs = [];
-  let last = 0;
-  re.lastIndex = 0;
-  let m;
-  while ((m = re.exec(line)) !== null) {
-    if (m[0].length === 0) {
-      re.lastIndex++; // zero-width match (empty, ^, x*): skip, don't loop forever
-      continue;
-    }
-    if (m.index > last) segs.push({ text: line.slice(last, m.index), cls: "file" });
-    segs.push({ text: m[0], cls: "match" });
-    last = m.index + m[0].length;
-  }
-  if (last < line.length) segs.push({ text: line.slice(last), cls: "file" });
-  if (segs.length === 0) segs.push({ text: line, cls: "file" }); // empty line
-  return segs;
 }
 
 // head / tail share parsing, resolution, and output shape — only line
@@ -638,160 +522,3 @@ export const COMMANDS = {
     },
   },
 };
-
-// --- Tab completion --------------------------------------------------------
-
-// Compute a completion for rawInput. Returns:
-//   newInput   — replacement for the whole input line, or null if nothing to do
-//   candidates — [{text, cls}] to display when the match is ambiguous
-export function complete(rawInput, ctx) {
-  const endsWithSpace = rawInput === "" || /\s$/.test(rawInput);
-  const tokens = rawInput.split(/\s+/).filter(Boolean);
-  const current = endsWithSpace ? "" : tokens[tokens.length - 1];
-  const head = rawInput.slice(0, rawInput.length - current.length);
-  const isCommandPosition = tokens.length === 0 || (tokens.length === 1 && !endsWithSpace);
-
-  let matches;
-  if (isCommandPosition && !current.includes("/") && !current.startsWith(".")) {
-    matches = Object.keys(COMMANDS)
-      .filter((name) => name.startsWith(current))
-      .sort()
-      .map((name) => ({ display: name, cls: "file", token: name, suffix: " " }));
-  } else {
-    // Path completion: split the token into the directory part (kept as-is)
-    // and the basename being completed.
-    let rest = current;
-    let dotSlash = "";
-    if (rest.startsWith("./")) {
-      dotSlash = "./";
-      rest = rest.slice(2);
-    }
-    const slash = rest.lastIndexOf("/");
-    const dirPart = slash >= 0 ? rest.slice(0, slash + 1) : "";
-    const base = slash >= 0 ? rest.slice(slash + 1) : rest;
-    const dirNode = nodeAt(ctx.fsRoot, resolveSegments(ctx.cwd, dirPart === "" ? "." : dirPart));
-    if (!dirNode || dirNode.type !== "dir") return { newInput: null, candidates: [] };
-    matches = Object.keys(dirNode.children)
-      .filter((name) => name.startsWith(base))
-      .sort()
-      .map((name) => {
-        const child = dirNode.children[name];
-        const isDir = child.type === "dir";
-        const isExec = child.type === "exec";
-        return {
-          display: name + (isDir ? "/" : isExec ? "*" : ""),
-          cls: isDir ? "dir" : isExec ? "exec" : "file",
-          token: dotSlash + dirPart + name,
-          suffix: isDir ? "/" : " ",
-        };
-      });
-  }
-
-  if (matches.length === 0) return { newInput: null, candidates: [] };
-  if (matches.length === 1) {
-    return { newInput: head + matches[0].token + matches[0].suffix, candidates: [] };
-  }
-
-  // Ambiguous: extend to the longest common prefix, and list the options.
-  let lcp = matches[0].token;
-  for (const m of matches) {
-    while (!m.token.startsWith(lcp)) lcp = lcp.slice(0, -1);
-  }
-  return {
-    newInput: lcp.length > current.length ? head + lcp : null,
-    candidates: matches.map((m) => ({ text: m.display, cls: m.cls })),
-  };
-}
-
-// --- Dispatch --------------------------------------------------------------
-
-// Split a command line into tokens, honoring '...' and "..." quoting. Both
-// quote styles are literal (no expansion); quotes are stripped. An unterminated
-// quote runs to end of line. Whitespace outside quotes separates. Each token
-// carries `quoted` (true if any part was quoted) so globbing can skip it.
-export function tokenize(input) {
-  const tokens = [];
-  let cur = "";
-  let inToken = false;
-  let quoted = false;
-  let quote = null;
-  for (const ch of input) {
-    if (quote) {
-      if (ch === quote) quote = null;
-      else cur += ch;
-      inToken = true;
-    } else if (ch === "'" || ch === '"') {
-      quote = ch;
-      inToken = true;
-      quoted = true;
-    } else if (/\s/.test(ch)) {
-      if (inToken) {
-        tokens.push({ value: cur, quoted });
-        cur = "";
-        inToken = false;
-        quoted = false;
-      }
-    } else {
-      cur += ch;
-      inToken = true;
-    }
-  }
-  if (inToken) tokens.push({ value: cur, quoted });
-  return tokens;
-}
-
-// Translate a single path-segment glob (* ?) to an anchored regex.
-function globToRegExp(seg) {
-  let re = "^";
-  for (const ch of seg) {
-    if (ch === "*") re += ".*";
-    else if (ch === "?") re += ".";
-    else re += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }
-  return new RegExp(re + "$");
-}
-
-// Expand a glob pattern to sorted matching path strings, or null if it has no
-// glob in its final segment or matches nothing (bash nullglob-off: keep literal).
-// v1 globs only the final path segment; the directory prefix is literal.
-function expandGlob(fsRoot, cwd, pattern) {
-  const slash = pattern.lastIndexOf("/");
-  const lastSeg = slash >= 0 ? pattern.slice(slash + 1) : pattern;
-  if (!/[*?]/.test(lastSeg)) return null;
-  const dirPart = slash >= 0 ? pattern.slice(0, slash + 1) : "";
-  const dirNode = nodeAt(fsRoot, resolveSegments(cwd, dirPart || "."));
-  if (!dirNode || dirNode.type !== "dir") return null;
-  const re = globToRegExp(lastSeg);
-  const matches = Object.keys(dirNode.children)
-    .filter((name) => re.test(name))
-    .sort()
-    .map((name) => dirPart + name); // keep literal prefix → relative/absolute style preserved
-  return matches.length ? matches : null;
-}
-
-export function dispatch(rawInput, ctx) {
-  const parts = tokenize(rawInput);
-  if (parts.length === 0) return;
-  let cmd = parts[0].value;
-  const argv = [];
-  for (const part of parts.slice(1)) {
-    if (part.quoted) {
-      argv.push(part.value); // quotes suppress globbing
-      continue;
-    }
-    const matches = expandGlob(ctx.fsRoot, ctx.cwd, part.value);
-    if (matches) argv.push(...matches);
-    else argv.push(part.value); // no glob / no match → literal
-  }
-  let args = argv;
-  if (cmd.startsWith("./")) {
-    args = [cmd.slice(2), ...argv];
-    cmd = "run";
-  }
-  const handler = COMMANDS[cmd];
-  if (!handler) {
-    ctx.println(`bash: ${cmd}: command not found`);
-    return;
-  }
-  handler.run(args, ctx);
-}

@@ -1,6 +1,7 @@
 // Terminal engine: scrollback rendering, prompt/input lifecycle, history.
 
 import { dispatch, complete } from "./shell.js";
+import { historyStep, cursorPlacement } from "./input.js";
 
 const HOST = "gebrial.github.io";
 
@@ -25,19 +26,26 @@ export function createTerminal({ container, fsRoot }) {
     closed: false,
   };
 
+  // Measure a string's rendered width using the hidden span (shares the input's
+  // font, so it tracks the responsive clamp() font-size).
+  function measureText(str) {
+    measurer.textContent = str;
+    return measurer.getBoundingClientRect().width;
+  }
+
   // Position the block cursor over the caret cell of the given input.
   function updateCursor(input, cursorEl) {
-    const value = input.value;
-    const pos = input.selectionStart ?? value.length;
-    measurer.textContent = value.slice(0, pos);
-    const x = measurer.getBoundingClientRect().width - input.scrollLeft;
-    const ch = value[pos] || "";
+    const { left, width, ch, visible } = cursorPlacement({
+      value: input.value,
+      pos: input.selectionStart ?? input.value.length,
+      textWidth: measureText,
+      scrollLeft: input.scrollLeft,
+      clientWidth: input.clientWidth,
+    });
     cursorEl.textContent = ch;
-    measurer.textContent = ch || " ";
-    cursorEl.style.width = measurer.getBoundingClientRect().width + "px";
-    cursorEl.style.left = x + "px";
-    // Hide when the caret has scrolled out of a long line's visible area.
-    cursorEl.style.visibility = x < 0 || x > input.clientWidth ? "hidden" : "visible";
+    cursorEl.style.width = width + "px";
+    cursorEl.style.left = left + "px";
+    cursorEl.style.visibility = visible ? "visible" : "hidden";
   }
 
   function promptText() {
@@ -143,7 +151,9 @@ export function createTerminal({ container, fsRoot }) {
     promptLine.appendChild(echoed);
   }
 
-  function spawnPrompt() {
+  // Build a fresh prompt line's DOM: `guest@host:path$ ` label, the text input,
+  // and the block-cursor overlay. Returns the pieces; caller mounts it.
+  function buildPromptLine() {
     const promptLine = document.createElement("div");
     promptLine.className = "line prompt-line";
 
@@ -169,13 +179,15 @@ export function createTerminal({ container, fsRoot }) {
     wrap.appendChild(cursorEl);
 
     promptLine.appendChild(wrap);
-    output.appendChild(promptLine);
+    return { promptLine, input, cursorEl };
+  }
 
+  // Wire the block cursor to an input: reposition on edits/caret moves, keep it
+  // solid while typing (blink when idle), and hollow it while unfocused.
+  // Returns { update, cancelTyping }.
+  function wireCursor(input, cursorEl) {
     const update = () => updateCursor(input, cursorEl);
-    state.activeInput = input;
-    state.updateCursor = update;
 
-    // Keep the block solid while actively typing; resume blinking when idle.
     let typingTimer = null;
     const markTyping = () => {
       cursorEl.classList.add("solid");
@@ -193,60 +205,76 @@ export function createTerminal({ container, fsRoot }) {
     input.addEventListener("focus", () => cursorEl.classList.remove("hollow"));
     input.addEventListener("blur", () => cursorEl.classList.add("hollow"));
 
+    return { update, cancelTyping: () => clearTimeout(typingTimer) };
+  }
+
+  function spawnPrompt() {
+    const { promptLine, input, cursorEl } = buildPromptLine();
+    output.appendChild(promptLine);
+
+    const { update, cancelTyping } = wireCursor(input, cursorEl);
+    state.activeInput = input;
+    state.updateCursor = update;
+
+    // Move the caret to the end of the input, then reposition the cursor. Done
+    // in rAF because assigning input.value can reset the caret afterwards.
+    function caretToEnd() {
+      requestAnimationFrame(() => {
+        input.setSelectionRange(input.value.length, input.value.length);
+        update();
+      });
+    }
+
+    function onEnter() {
+      const value = input.value;
+      cancelTyping();
+      freezePromptLine(promptLine, value);
+      state.activeInput = null;
+      state.updateCursor = null;
+
+      const trimmed = value.trim();
+      if (trimmed) state.history.push(trimmed);
+      state.historyIndex = state.history.length;
+
+      dispatch(value, ctx);
+      if (!state.closed) spawnPrompt();
+    }
+
+    function onHistory(direction) {
+      const step = historyStep(state.history, state.historyIndex, direction);
+      if (!step) return;
+      state.historyIndex = step.index;
+      input.value = step.value;
+      update();
+      caretToEnd();
+    }
+
+    function onTab() {
+      const result = complete(input.value, ctx);
+      if (result.newInput !== null) {
+        input.value = result.newInput;
+        update();
+        caretToEnd();
+      }
+      if (result.candidates.length > 1) {
+        // Show the options above the live prompt, like bash does.
+        output.insertBefore(buildListingLine(result.candidates), promptLine);
+        scrollToBottom();
+      }
+    }
+
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
-        const value = input.value;
-        clearTimeout(typingTimer);
-        freezePromptLine(promptLine, value);
-        state.activeInput = null;
-        state.updateCursor = null;
-
-        const trimmed = value.trim();
-        if (trimmed) {
-          state.history.push(trimmed);
-        }
-        state.historyIndex = state.history.length;
-
-        dispatch(value, ctx);
-        if (!state.closed) spawnPrompt();
+        onEnter();
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        if (state.historyIndex > 0) {
-          state.historyIndex--;
-          input.value = state.history[state.historyIndex];
-          update();
-          // put caret at end
-          requestAnimationFrame(() => {
-            input.setSelectionRange(input.value.length, input.value.length);
-            update();
-          });
-        }
-      } else if (e.key === "Tab") {
-        e.preventDefault();
-        const result = complete(input.value, ctx);
-        if (result.newInput !== null) {
-          input.value = result.newInput;
-          update();
-          requestAnimationFrame(() => {
-            input.setSelectionRange(input.value.length, input.value.length);
-            update();
-          });
-        }
-        if (result.candidates.length > 1) {
-          // Show the options above the live prompt, like bash does.
-          output.insertBefore(buildListingLine(result.candidates), promptLine);
-          scrollToBottom();
-        }
+        onHistory(-1);
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        if (state.historyIndex < state.history.length - 1) {
-          state.historyIndex++;
-          input.value = state.history[state.historyIndex];
-        } else {
-          state.historyIndex = state.history.length;
-          input.value = "";
-        }
-        update();
+        onHistory(1);
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        onTab();
       }
     });
 

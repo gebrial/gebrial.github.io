@@ -95,6 +95,62 @@ export function dispatch(rawInput, ctx) {
   handler.run(args, ctx);
 }
 
+// Candidate commands whose name starts with `prefix`.
+function completeCommandName(prefix) {
+  return Object.keys(COMMANDS)
+    .filter((name) => name.startsWith(prefix))
+    .sort()
+    .map((name) => ({ display: name, cls: "file", token: name, suffix: " " }));
+}
+
+// Candidate filesystem entries for the partial path `current`. Splits the token
+// into a directory part (kept verbatim) and the basename being completed.
+// Returns null when `current` doesn't point at a real directory.
+function completePath(current, ctx) {
+  let rest = current;
+  let dotSlash = "";
+  if (rest.startsWith("./")) {
+    dotSlash = "./";
+    rest = rest.slice(2);
+  }
+  const slash = rest.lastIndexOf("/");
+  const dirPart = slash >= 0 ? rest.slice(0, slash + 1) : "";
+  const base = slash >= 0 ? rest.slice(slash + 1) : rest;
+  const dirNode = nodeAt(ctx.fsRoot, resolveSegments(ctx.cwd, dirPart === "" ? "." : dirPart));
+  if (!dirNode || dirNode.type !== "dir") return null;
+  return Object.keys(dirNode.children)
+    .filter((name) => name.startsWith(base))
+    .sort()
+    .map((name) => {
+      const child = dirNode.children[name];
+      const isDir = child.type === "dir";
+      const isExec = child.type === "exec";
+      return {
+        display: name + (isDir ? "/" : isExec ? "*" : ""),
+        cls: isDir ? "dir" : isExec ? "exec" : "file",
+        token: dotSlash + dirPart + name,
+        suffix: isDir ? "/" : " ",
+      };
+    });
+}
+
+// Turn candidate matches into a completion result: fill in a unique match,
+// extend to the longest common prefix when ambiguous, else list options.
+function resolveMatches(matches, current, head) {
+  if (matches.length === 0) return { newInput: null, candidates: [] };
+  if (matches.length === 1) {
+    return { newInput: head + matches[0].token + matches[0].suffix, candidates: [] };
+  }
+  let lcp = matches[0].token;
+  for (const m of matches) {
+    while (!m.token.startsWith(lcp)) lcp = lcp.slice(0, -1);
+  }
+  return {
+    newInput: lcp.length > current.length ? head + lcp : null,
+    candidates: matches.map((m) => ({ text: m.display, cls: m.cls })),
+  };
+}
+
 // Compute a completion for rawInput. Returns:
 //   newInput   — replacement for the whole input line, or null if nothing to do
 //   candidates — [{text, cls}] to display when the match is ambiguous
@@ -107,52 +163,10 @@ export function complete(rawInput, ctx) {
 
   let matches;
   if (isCommandPosition && !current.includes("/") && !current.startsWith(".")) {
-    matches = Object.keys(COMMANDS)
-      .filter((name) => name.startsWith(current))
-      .sort()
-      .map((name) => ({ display: name, cls: "file", token: name, suffix: " " }));
+    matches = completeCommandName(current);
   } else {
-    // Path completion: split the token into the directory part (kept as-is)
-    // and the basename being completed.
-    let rest = current;
-    let dotSlash = "";
-    if (rest.startsWith("./")) {
-      dotSlash = "./";
-      rest = rest.slice(2);
-    }
-    const slash = rest.lastIndexOf("/");
-    const dirPart = slash >= 0 ? rest.slice(0, slash + 1) : "";
-    const base = slash >= 0 ? rest.slice(slash + 1) : rest;
-    const dirNode = nodeAt(ctx.fsRoot, resolveSegments(ctx.cwd, dirPart === "" ? "." : dirPart));
-    if (!dirNode || dirNode.type !== "dir") return { newInput: null, candidates: [] };
-    matches = Object.keys(dirNode.children)
-      .filter((name) => name.startsWith(base))
-      .sort()
-      .map((name) => {
-        const child = dirNode.children[name];
-        const isDir = child.type === "dir";
-        const isExec = child.type === "exec";
-        return {
-          display: name + (isDir ? "/" : isExec ? "*" : ""),
-          cls: isDir ? "dir" : isExec ? "exec" : "file",
-          token: dotSlash + dirPart + name,
-          suffix: isDir ? "/" : " ",
-        };
-      });
+    matches = completePath(current, ctx);
+    if (matches === null) return { newInput: null, candidates: [] };
   }
-
-  if (matches.length === 0) return { newInput: null, candidates: [] };
-  if (matches.length === 1) {
-    return { newInput: head + matches[0].token + matches[0].suffix, candidates: [] };
-  }
-
-  // Ambiguous: extend to the longest common prefix, and list the options.
-  let lcp = matches[0].token;
-  for (const m of matches) {
-    while (!m.token.startsWith(lcp)) lcp = lcp.slice(0, -1);
-  }
-  return {
-    newInput: lcp.length > current.length ? head + lcp : null,
-    candidates: matches.map((m) => ({ text: m.display, cls: m.cls })),
-  };
+  return resolveMatches(matches, current, head);
 }

@@ -10,6 +10,23 @@
 import { resolveSegments, nodeAt, pathString } from "./paths.js";
 import { formatDate, nodeSize, longRows, countText, highlightSegments } from "./format.js";
 
+// Partition tokenized args into flag letters and operands. A bundle like `-rf`
+// contributes letters r,f; everything else is an operand. Each command decides
+// what its letters mean. (head/tail's numeric `-n` parsing is a different
+// grammar and stays in parseLineArgs.)
+function splitFlags(args) {
+  const flags = new Set();
+  const operands = [];
+  for (const a of args) {
+    if (a.startsWith("-") && a.length > 1) {
+      for (const ch of a.slice(1)) flags.add(ch);
+    } else {
+      operands.push(a);
+    }
+  }
+  return { flags, operands };
+}
+
 // Write-family commands. The virtual filesystem is read-only, so each refuses
 // in-character. With no operand they mirror the real coreutils "missing
 // operand" errors; two-operand commands (mv/cp) also flag a missing destination.
@@ -19,7 +36,7 @@ function makeWriteCommand(name, { desc, missing, dest = false }) {
     hidden: true,
     run(args, ctx) {
       // Flags (e.g. -rf) aren't operands; count only the file/dir arguments.
-      const operands = args.filter((a) => !(a.startsWith("-") && a.length > 1));
+      const { operands } = splitFlags(args);
       if (operands.length === 0) {
         ctx.println(`${name}: ${missing}`);
         return;
@@ -129,6 +146,55 @@ const WHOAMI_LINES = [
 ];
 let lastWhoami = -1;
 
+// --- ls helpers ------------------------------------------------------------
+
+function parseLsArgs(args) {
+  const { flags, operands } = splitFlags(args);
+  return { longFmt: flags.has("l"), target: operands[0] ?? "." };
+}
+
+// `ls -l` output. The `total` header is printed only for directory listings.
+function renderLong(pairs, ctx, withTotal) {
+  if (withTotal) {
+    const total = pairs.reduce((sum, [, n]) => sum + Math.max(1, Math.ceil(nodeSize(n) / 1024)), 0);
+    ctx.println(`total ${total}`);
+  }
+  ctx.printRows(longRows(pairs));
+}
+
+// Plain `ls` output: names decorated by type, on one line.
+function renderShort(names, node, ctx) {
+  const decorated = names.map((name) => {
+    const child = node.children[name];
+    if (child.type === "dir") return { text: name + "/", cls: "dir" };
+    if (child.type === "exec") return { text: name + "*", cls: "exec" };
+    return { text: name, cls: "file" };
+  });
+  ctx.printListing
+    ? ctx.printListing(decorated)
+    : ctx.println(decorated.map((d) => d.text).join("  "));
+}
+
+// --- grep helper -----------------------------------------------------------
+
+// Print the matching lines of one file (or, with -c, the match count).
+function grepFile(ctx, content, target, { opts, matchRe, globalRe, multi }) {
+  let count = 0;
+  const rows = [];
+  content.split("\n").forEach((line, idx) => {
+    if (matchRe.test(line) === opts.v) return; // skip non-matches (or matches if -v)
+    count++;
+    if (opts.c) return;
+    const prefix = [];
+    if (multi) prefix.push({ text: `${target}:`, cls: "dim" });
+    if (opts.n) prefix.push({ text: `${idx + 1}:`, cls: "dim" });
+    const body = opts.v ? [{ text: line, cls: "file" }] : highlightSegments(line, globalRe);
+    rows.push([...prefix, ...body]);
+  });
+  if (opts.c) ctx.println(multi ? `${target}:${count}` : `${count}`);
+  else if (rows.length) ctx.printRows(rows);
+}
+
 // --- Commands --------------------------------------------------------------
 
 export const COMMANDS = {
@@ -151,19 +217,8 @@ export const COMMANDS = {
   ls: {
     desc: "List directory contents",
     run(args, ctx) {
-      // Separate flag bundles (e.g. -l, -la) from the path. We have no hidden
-      // files, so any flag other than `l` is accepted and ignored.
-      let longFmt = false;
-      let target = null;
-      for (const a of args) {
-        if (a.startsWith("-") && a.length > 1) {
-          if (a.includes("l")) longFmt = true;
-        } else if (target === null) {
-          target = a;
-        }
-      }
-      target = target ?? ".";
-
+      // We have no hidden files, so any flag other than `l` is accepted and ignored.
+      const { longFmt, target } = parseLsArgs(args);
       const segments = resolveSegments(ctx.cwd, target);
       const node = nodeAt(ctx.fsRoot, segments);
       if (!node) {
@@ -173,7 +228,7 @@ export const COMMANDS = {
       if (node.type !== "dir") {
         if (longFmt) {
           const name = segments.length ? segments[segments.length - 1] : target;
-          ctx.printRows(longRows([[name, node]]));
+          renderLong([[name, node]], ctx, false);
         } else {
           // Real ls prints the file path itself.
           ctx.println(target);
@@ -185,38 +240,18 @@ export const COMMANDS = {
       if (names.length === 0) return;
 
       if (longFmt) {
-        const pairs = names.map((name) => [name, node.children[name]]);
-        const total = pairs.reduce(
-          (sum, [, n]) => sum + Math.max(1, Math.ceil(nodeSize(n) / 1024)),
-          0
-        );
-        ctx.println(`total ${total}`);
-        ctx.printRows(longRows(pairs));
-        return;
+        renderLong(names.map((name) => [name, node.children[name]]), ctx, true);
+      } else {
+        renderShort(names, node, ctx);
       }
-
-      const decorated = names.map((name) => {
-        const child = node.children[name];
-        if (child.type === "dir") return { text: name + "/", cls: "dir" };
-        if (child.type === "exec") return { text: name + "*", cls: "exec" };
-        return { text: name, cls: "file" };
-      });
-      ctx.printListing
-        ? ctx.printListing(decorated)
-        : ctx.println(decorated.map((d) => d.text).join("  "));
     },
   },
 
   tree: {
     desc: "List directory contents recursively",
     run(args, ctx) {
-      // Same flag handling as ls: skip flag bundles, first non-flag is the path.
-      let target = null;
-      for (const a of args) {
-        if (a.startsWith("-") && a.length > 1) continue;
-        if (target === null) target = a;
-      }
-      target = target ?? ".";
+      // No flags are supported yet; the first non-flag operand is the path.
+      const target = splitFlags(args).operands[0] ?? ".";
 
       const node = nodeAt(ctx.fsRoot, resolveSegments(ctx.cwd, target));
       if (!node) {
@@ -307,15 +342,9 @@ export const COMMANDS = {
     run(args, ctx) {
       const flagMap = { l: "lines", w: "words", m: "chars", c: "bytes" };
       const order = ["lines", "words", "chars", "bytes"]; // canonical print order
+      const { flags, operands: files } = splitFlags(args);
       const selected = new Set();
-      const files = [];
-      for (const a of args) {
-        if (a.length > 1 && a.startsWith("-")) {
-          for (const ch of a.slice(1)) if (flagMap[ch]) selected.add(flagMap[ch]);
-        } else {
-          files.push(a);
-        }
-      }
+      for (const ch of flags) if (flagMap[ch]) selected.add(flagMap[ch]);
       if (files.length === 0) {
         ctx.println("usage: wc [-lwcm] <file>");
         return;
@@ -348,16 +377,9 @@ export const COMMANDS = {
     desc: "Search for a pattern in a file",
     run(args, ctx) {
       const opts = { i: false, n: false, v: false, c: false };
-      const rest = [];
-      for (const a of args) {
-        if (a.startsWith("-") && a.length > 1) {
-          for (const ch of a.slice(1)) if (ch in opts) opts[ch] = true;
-        } else {
-          rest.push(a);
-        }
-      }
-      const pattern = rest.shift();
-      const files = rest;
+      const { flags, operands } = splitFlags(args);
+      for (const ch of flags) if (ch in opts) opts[ch] = true;
+      const [pattern, ...files] = operands;
       if (pattern === undefined || files.length === 0) {
         ctx.println("usage: grep [-invc] <pattern> <file>");
         return;
@@ -372,24 +394,10 @@ export const COMMANDS = {
         return;
       }
 
-      const multi = files.length > 1;
+      const search = { opts, matchRe, globalRe, multi: files.length > 1 };
       for (const target of files) {
         const content = readFile(ctx, "grep", target); // null => error printed, skip
-        if (content === null) continue;
-        let count = 0;
-        const rows = [];
-        content.split("\n").forEach((line, idx) => {
-          if (matchRe.test(line) === opts.v) return; // skip non-matches (or matches if -v)
-          count++;
-          if (opts.c) return;
-          const prefix = [];
-          if (multi) prefix.push({ text: `${target}:`, cls: "dim" });
-          if (opts.n) prefix.push({ text: `${idx + 1}:`, cls: "dim" });
-          const body = opts.v ? [{ text: line, cls: "file" }] : highlightSegments(line, globalRe);
-          rows.push([...prefix, ...body]);
-        });
-        if (opts.c) ctx.println(multi ? `${target}:${count}` : `${count}`);
-        else if (rows.length) ctx.printRows(rows);
+        if (content !== null) grepFile(ctx, content, target, search);
       }
     },
   },

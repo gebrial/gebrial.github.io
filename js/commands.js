@@ -705,13 +705,15 @@ export function complete(rawInput, ctx) {
 
 // --- Dispatch --------------------------------------------------------------
 
-// Split a command line into argument tokens, honoring '...' and "..." quoting.
-// Both quote styles are literal (no expansion); quotes are stripped. An
-// unterminated quote runs to end of line. Whitespace outside quotes separates.
+// Split a command line into tokens, honoring '...' and "..." quoting. Both
+// quote styles are literal (no expansion); quotes are stripped. An unterminated
+// quote runs to end of line. Whitespace outside quotes separates. Each token
+// carries `quoted` (true if any part was quoted) so globbing can skip it.
 export function tokenize(input) {
   const tokens = [];
   let cur = "";
   let inToken = false;
+  let quoted = false;
   let quote = null;
   for (const ch of input) {
     if (quote) {
@@ -721,27 +723,69 @@ export function tokenize(input) {
     } else if (ch === "'" || ch === '"') {
       quote = ch;
       inToken = true;
+      quoted = true;
     } else if (/\s/.test(ch)) {
       if (inToken) {
-        tokens.push(cur);
+        tokens.push({ value: cur, quoted });
         cur = "";
         inToken = false;
+        quoted = false;
       }
     } else {
       cur += ch;
       inToken = true;
     }
   }
-  if (inToken) tokens.push(cur);
+  if (inToken) tokens.push({ value: cur, quoted });
   return tokens;
 }
 
+// Translate a single path-segment glob (* ?) to an anchored regex.
+function globToRegExp(seg) {
+  let re = "^";
+  for (const ch of seg) {
+    if (ch === "*") re += ".*";
+    else if (ch === "?") re += ".";
+    else re += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(re + "$");
+}
+
+// Expand a glob pattern to sorted matching path strings, or null if it has no
+// glob in its final segment or matches nothing (bash nullglob-off: keep literal).
+// v1 globs only the final path segment; the directory prefix is literal.
+function expandGlob(fsRoot, cwd, pattern) {
+  const slash = pattern.lastIndexOf("/");
+  const lastSeg = slash >= 0 ? pattern.slice(slash + 1) : pattern;
+  if (!/[*?]/.test(lastSeg)) return null;
+  const dirPart = slash >= 0 ? pattern.slice(0, slash + 1) : "";
+  const dirNode = nodeAt(fsRoot, resolveSegments(cwd, dirPart || "."));
+  if (!dirNode || dirNode.type !== "dir") return null;
+  const re = globToRegExp(lastSeg);
+  const matches = Object.keys(dirNode.children)
+    .filter((name) => re.test(name))
+    .sort()
+    .map((name) => dirPart + name); // keep literal prefix → relative/absolute style preserved
+  return matches.length ? matches : null;
+}
+
 export function dispatch(rawInput, ctx) {
-  const tokens = tokenize(rawInput);
-  if (tokens.length === 0) return;
-  let [cmd, ...args] = tokens;
+  const parts = tokenize(rawInput);
+  if (parts.length === 0) return;
+  let cmd = parts[0].value;
+  const argv = [];
+  for (const part of parts.slice(1)) {
+    if (part.quoted) {
+      argv.push(part.value); // quotes suppress globbing
+      continue;
+    }
+    const matches = expandGlob(ctx.fsRoot, ctx.cwd, part.value);
+    if (matches) argv.push(...matches);
+    else argv.push(part.value); // no glob / no match → literal
+  }
+  let args = argv;
   if (cmd.startsWith("./")) {
-    args = [cmd.slice(2), ...args];
+    args = [cmd.slice(2), ...argv];
     cmd = "run";
   }
   const handler = COMMANDS[cmd];

@@ -149,6 +149,11 @@ body {
   color: var(--dim);
 }
 
+.ls-match {
+  color: var(--accent);
+  font-weight: bold;
+}
+
 .banner {
   color: var(--dim);
 }

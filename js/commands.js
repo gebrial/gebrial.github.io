@@ -165,6 +165,27 @@ function countText(content) {
   };
 }
 
+// Split `line` into styled segments for grep: matched runs get cls "match",
+// the rest cls "file". `re` must be a global regex.
+function highlightSegments(line, re) {
+  const segs = [];
+  let last = 0;
+  re.lastIndex = 0;
+  let m;
+  while ((m = re.exec(line)) !== null) {
+    if (m.index > last) segs.push({ text: line.slice(last, m.index), cls: "file" });
+    if (m[0].length > 0) {
+      segs.push({ text: m[0], cls: "match" });
+      last = m.index + m[0].length;
+    } else {
+      re.lastIndex++; // zero-width match (e.g. ^, x*): don't loop forever
+    }
+  }
+  if (last < line.length) segs.push({ text: line.slice(last), cls: "file" });
+  if (segs.length === 0) segs.push({ text: line, cls: "file" }); // empty line
+  return segs;
+}
+
 // head / tail share parsing, resolution, and output shape — only line
 // selection differs, so they're built from one factory.
 // Parse `-n N`, `-nN`, and `-N` count forms; everything else is a file operand.
@@ -435,6 +456,56 @@ export const COMMANDS = {
       for (const r of rows) {
         const nums = cols.map((k) => String(r.counts[k]).padStart(width)).join(" ");
         ctx.println(`${nums} ${r.name}`);
+      }
+    },
+  },
+
+  grep: {
+    desc: "Search for a pattern in a file",
+    run(args, ctx) {
+      const opts = { i: false, n: false, v: false, c: false };
+      const rest = [];
+      for (const a of args) {
+        if (a.startsWith("-") && a.length > 1) {
+          for (const ch of a.slice(1)) if (ch in opts) opts[ch] = true;
+        } else {
+          rest.push(a);
+        }
+      }
+      const pattern = rest.shift();
+      const files = rest;
+      if (pattern === undefined || files.length === 0) {
+        ctx.println("usage: grep [-invc] <pattern> <file>");
+        return;
+      }
+
+      let matchRe, globalRe;
+      try {
+        matchRe = new RegExp(pattern, opts.i ? "i" : "");
+        globalRe = new RegExp(pattern, opts.i ? "gi" : "g");
+      } catch {
+        ctx.println(`grep: invalid pattern: ${pattern}`);
+        return;
+      }
+
+      const multi = files.length > 1;
+      for (const target of files) {
+        const content = readFile(ctx, "grep", target); // null => error printed, skip
+        if (content === null) continue;
+        let count = 0;
+        const rows = [];
+        content.split("\n").forEach((line, idx) => {
+          if (matchRe.test(line) === opts.v) return; // skip non-matches (or matches if -v)
+          count++;
+          if (opts.c) return;
+          const prefix = [];
+          if (multi) prefix.push({ text: `${target}:`, cls: "dim" });
+          if (opts.n) prefix.push({ text: `${idx + 1}:`, cls: "dim" });
+          const body = opts.v ? [{ text: line, cls: "file" }] : highlightSegments(line, globalRe);
+          rows.push([...prefix, ...body]);
+        });
+        if (opts.c) ctx.println(multi ? `${target}:${count}` : `${count}`);
+        else if (rows.length) ctx.printRows(rows);
       }
     },
   },

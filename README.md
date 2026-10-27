@@ -10,7 +10,7 @@ files directly.
 ## Features
 
 - Commands: `help`, `ls`, `cd`, `cat`, `pwd`, `clear`, and `./launch` /
-  `run <name>` to open a project
+  `run <name>` to open a project, and `./resume` to open my resume (PDF)
 - Tab-completion for command names and paths (bash-style: completes unique
   matches, lists candidates when ambiguous)
 - Up/Down arrow command history

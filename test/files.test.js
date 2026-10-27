@@ -67,23 +67,23 @@ test("head/tail errors mirror cat's wording", () => {
 // --- wc --------------------------------------------------------------------
 
 test("wc default columns: lines words bytes, right-aligned", () => {
-  assert.deepEqual(runIn("wc about.txt").lines, ["  6  32 180 about.txt"]);
+  assert.deepEqual(runIn("wc about.txt").lines, ["  7  38 214 about.txt"]);
 });
 
 test("wc flag subsets print in canonical order regardless of flag order", () => {
-  assert.deepEqual(runIn("wc -l about.txt").lines, ["6 about.txt"]);
-  assert.deepEqual(runIn("wc -w about.txt").lines, ["32 about.txt"]);
-  assert.deepEqual(runIn("wc -c about.txt").lines, ["180 about.txt"]);
-  assert.deepEqual(runIn("wc -m about.txt").lines, ["180 about.txt"]);
-  assert.deepEqual(runIn("wc -lw about.txt").lines, [" 6 32 about.txt"]);
-  assert.deepEqual(runIn("wc -wl about.txt").lines, [" 6 32 about.txt"]);
+  assert.deepEqual(runIn("wc -l about.txt").lines, ["7 about.txt"]);
+  assert.deepEqual(runIn("wc -w about.txt").lines, ["38 about.txt"]);
+  assert.deepEqual(runIn("wc -c about.txt").lines, ["214 about.txt"]);
+  assert.deepEqual(runIn("wc -m about.txt").lines, ["214 about.txt"]);
+  assert.deepEqual(runIn("wc -lw about.txt").lines, [" 7 38 about.txt"]);
+  assert.deepEqual(runIn("wc -wl about.txt").lines, [" 7 38 about.txt"]);
 });
 
 test("wc multi-file adds an aligned total row", () => {
   assert.deepEqual(runIn("wc about.txt contact.txt").lines, [
-    "  6  32 180 about.txt",
+    "  7  38 214 about.txt",
     "  2   6 105 contact.txt",
-    "  8  38 285 total",
+    "  9  44 319 total",
   ]);
 });
 

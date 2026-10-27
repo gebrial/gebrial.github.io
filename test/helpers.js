@@ -40,13 +40,22 @@ export function makeCtx({ cwd = [], history = [] } = {}) {
   return ctx;
 }
 
-// Stub the browser global that project `launch` exec nodes assign to.
-// Returns a restore function; read the navigated URL via getHref().
-export function stubWindow() {
+// Stub the browser global that exec nodes navigate with. Returns a restore
+// function; read the navigated URL via getHref() and new-tab URLs via
+// getOpened(). Pass { popupBlocked: true } to make window.open fail.
+export function stubWindow({ popupBlocked = false } = {}) {
   const prev = globalThis.window;
-  globalThis.window = { location: { href: "" } };
+  const opened = [];
+  globalThis.window = {
+    location: { href: "" },
+    open(url) {
+      opened.push(url);
+      return popupBlocked ? null : {};
+    },
+  };
   return {
     getHref: () => globalThis.window.location.href,
+    getOpened: () => opened,
     restore: () => {
       if (prev === undefined) delete globalThis.window;
       else globalThis.window = prev;
@@ -61,6 +70,7 @@ export const ABOUT_LINES = [
   "",
   "Each folder under projects/ is one of my projects.",
   "cd into one and run `./launch` to visit it.",
+  "Run `./resume` to read my resume.",
   "",
   "Type `help` to see all commands.",
 ];

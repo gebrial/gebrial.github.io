@@ -9,6 +9,7 @@
 //   exec — { type: "exec", run(ctx) }               run via `./name` or `run name`
 
 const SITE_BASE = "https://gebrial.github.io";
+const RESUME_PATH = "Sanjaya_Gebrial_Resume.pdf";
 
 export const PROJECTS = [
   {
@@ -36,6 +37,12 @@ function projectReadme(p) {
   ]
     .filter((line) => line !== null)
     .join("\n");
+}
+
+// Open in a new tab so the terminal session survives; fall back to navigating
+// this tab if the browser blocks the popup.
+function openInNewTab(url) {
+  if (!window.open(url, "_blank")) window.location.href = url;
 }
 
 // The one place that knows how a PROJECTS entry maps to filesystem nodes.
@@ -73,6 +80,7 @@ export const FS_ROOT = {
         "",
         "Each folder under projects/ is one of my projects.",
         "cd into one and run `./launch` to visit it.",
+        "Run `./resume` to read my resume.",
         "",
         "Type `help` to see all commands.",
       ].join("\n"),
@@ -90,6 +98,14 @@ export const FS_ROOT = {
         "GitHub: https://github.com/gebrial",
         "LinkedIn: https://www.linkedin.com/in/gebrial/",
       ].join("\n"),
+    },
+    resume: {
+      type: "exec",
+      description: "Open my resume (PDF)",
+      run(ctx) {
+        ctx.println("Opening resume ...");
+        openInNewTab(RESUME_PATH);
+      },
     },
   },
 };

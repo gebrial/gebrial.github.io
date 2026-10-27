@@ -18,6 +18,7 @@ test("ls lists sorted entries with type decorations", () => {
     { text: "about.txt", cls: "file" },
     { text: "contact.txt", cls: "file" },
     { text: "projects/", cls: "dir" },
+    { text: "resume*", cls: "exec" },
   ]);
 });
 
@@ -36,9 +37,9 @@ test("ls on a file prints the path itself; missing target errors", () => {
 
 test("ls -l prints total, metadata columns, and descriptions", () => {
   const ctx = runIn("ls -l");
-  assert.equal(ctx.lines[0], "total 6");
+  assert.equal(ctx.lines[0], "total 7");
   const about = ctx.lines[1];
-  assert.ok(about.startsWith("-rw-r--r-- 1 gebrial staff  180 "), about);
+  assert.ok(about.startsWith("-rw-r--r-- 1 gebrial staff  214 "), about);
   assert.ok(about.includes("about.txt"));
   assert.ok(about.endsWith("About me"));
   const projects = ctx.lines[3];
@@ -57,11 +58,11 @@ test("ls -l metadata and description segments are dim; names keep type cls", () 
 test("ls -l on a single file row has no total header", () => {
   const ctx = runIn("ls -l about.txt");
   assert.equal(ctx.lines.length, 1);
-  assert.ok(ctx.lines[0].startsWith("-rw-r--r-- 1 gebrial staff 180 "));
+  assert.ok(ctx.lines[0].startsWith("-rw-r--r-- 1 gebrial staff 214 "));
 });
 
 test("ls -la behaves like ls -l (unknown letters ignored)", () => {
-  assert.equal(runIn("ls -la").lines[0], "total 6");
+  assert.equal(runIn("ls -la").lines[0], "total 7");
 });
 
 // --- tree ------------------------------------------------------------------
@@ -72,12 +73,13 @@ test("tree renders the full hierarchy with box-drawing connectors", () => {
     ".",
     "├── about.txt",
     "├── contact.txt",
-    "└── projects",
-    "    └── gravity",
-    "        ├── README.md",
-    "        └── launch",
+    "├── projects",
+    "│   └── gravity",
+    "│       ├── README.md",
+    "│       └── launch",
+    "└── resume",
     "",
-    "2 directories, 4 files",
+    "2 directories, 5 files",
   ]);
 });
 

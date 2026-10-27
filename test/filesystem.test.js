@@ -4,7 +4,7 @@ import { FS_ROOT, PROJECTS } from "../js/filesystem.js";
 import { makeCtx, stubWindow } from "./helpers.js";
 
 test("root contains the expected entries", () => {
-  assert.deepEqual(Object.keys(FS_ROOT.children).sort(), ["about.txt", "contact.txt", "projects"]);
+  assert.deepEqual(Object.keys(FS_ROOT.children).sort(), ["about.txt", "contact.txt", "projects", "resume"]);
   assert.equal(FS_ROOT.children["about.txt"].type, "file");
   assert.equal(FS_ROOT.children.projects.type, "dir");
 });
@@ -13,6 +13,30 @@ test("top-level nodes carry ls -l descriptions", () => {
   assert.equal(FS_ROOT.children["about.txt"].description, "About me");
   assert.equal(FS_ROOT.children["contact.txt"].description, "How to reach me");
   assert.equal(FS_ROOT.children.projects.description, "Things I've built");
+  assert.equal(FS_ROOT.children.resume.description, "Open my resume (PDF)");
+});
+
+test("resume opens the PDF in a new tab", () => {
+  const win = stubWindow();
+  try {
+    const ctx = makeCtx();
+    FS_ROOT.children.resume.run(ctx);
+    assert.deepEqual(win.getOpened(), ["Sanjaya_Gebrial_Resume.pdf"]);
+    assert.equal(win.getHref(), "");
+    assert.deepEqual(ctx.lines, ["Opening resume ..."]);
+  } finally {
+    win.restore();
+  }
+});
+
+test("resume falls back to same-tab navigation when popups are blocked", () => {
+  const win = stubWindow({ popupBlocked: true });
+  try {
+    FS_ROOT.children.resume.run(makeCtx());
+    assert.equal(win.getHref(), "Sanjaya_Gebrial_Resume.pdf");
+  } finally {
+    win.restore();
+  }
 });
 
 test("every PROJECTS entry generates a project folder", () => {

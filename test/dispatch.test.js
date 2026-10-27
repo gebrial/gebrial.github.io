@@ -55,7 +55,7 @@ test("quoted args pass through as single tokens", () => {
 test("* expands to sorted root entries", () => {
   const ctx = makeCtx();
   dispatch("echo *", ctx);
-  assert.deepEqual(ctx.lines, ["about.txt contact.txt projects"]);
+  assert.deepEqual(ctx.lines, ["about.txt contact.txt projects resume"]);
 });
 
 test("*.txt and ? patterns match by segment", () => {
